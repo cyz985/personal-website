@@ -281,13 +281,19 @@ export function computeSpiralLayout(
     extY = Math.max(extY, Math.abs(node.y - HALF) + node.nodeRadius)
   })
 
-  // 可用半径：扣掉安全留白，确保最外侧星球不会被裁切
-  const availX = Math.max(canvasW / 2 - canvasW * safeRatio, 40)
-  const availY = Math.max(canvasH / 2 - canvasH * safeRatio, 40)
+  // 可用半径：横向至少留出 10% 画布宽度，纵向留 8%，确保最外侧星球不被裁切
+  const availX = Math.max(canvasW / 2 - canvasW * Math.max(safeRatio, 0.1), 40)
+  const availY = Math.max(canvasH / 2 - canvasH * Math.min(safeRatio, 0.08), 40)
+  // 宽屏强制横向椭圆主轴：按画布比例设定最小宽高比，避免轨道被"压"成接近圆形
+  const canvasRatio = canvasW / canvasH
+  const targetRatio = canvasRatio >= 2 ? 1.9 : canvasRatio >= 1.55 ? 1.7 : 1.5
+  const usableY = canvasRatio >= 1.25 ? Math.min(availY, availX / targetRatio) : availY
+  // 主轴铺满可用宽度、副轴铺满按比例计算的高度 → 宽屏横向椭圆，窄屏纵向椭圆
   const kx = availX / extX
-  const ky = availY / extY
-  // 节点半径 / 字号 / 线宽统一用一个系数，星球不会被拉成椭圆
-  const unitScale = Math.min(kx, ky)
+  const ky = usableY / extY
+  // 星球尺寸跟随画布短边统一缩放，宽屏横向拉伸时不会因此变小；上限受纵向比例约束避免重叠
+  const sizeScale = Math.min(canvasW, canvasH) / CANVAS_SIZE
+  const unitScale = Math.min(sizeScale, ky * 1.2)
 
   const mapPoint = (x: number, y: number): [number, number] => [
     canvasW / 2 + (x - HALF) * kx,
