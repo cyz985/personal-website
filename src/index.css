@@ -1,0 +1,267 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #1b2a4a;
+    color: #f5f1e8;
+    /* 中英文混排的系统字体栈，无需额外加载字体文件 */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+      'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgba(255, 179, 112, 0.2);
+    color: #f5f1e8;
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * 温暖宇宙背景：深空蓝紫 → 暖橙暮光，叠加几处柔和的星云光斑
+ * 纯静态渐变（radial-gradient），不用滤镜，渲染开销极低
+ * ---------------------------------------------------------------------- */
+.page-aurora {
+  background:
+    radial-gradient(40% 34% at 80% 76%, rgba(255, 179, 112, 0.19) 0%, transparent 70%),
+    radial-gradient(44% 38% at 16% 20%, rgba(199, 166, 255, 0.17) 0%, transparent 72%),
+    radial-gradient(34% 30% at 88% 26%, rgba(127, 216, 255, 0.1) 0%, transparent 72%),
+    radial-gradient(30% 20% at 50% 102%, rgba(255, 179, 112, 0.13) 0%, transparent 72%),
+    radial-gradient(62% 52% at 50% 50%, rgba(58, 42, 94, 0.5) 0%, rgba(27, 42, 74, 0) 68%),
+    linear-gradient(158deg, #1b2a4a 0%, #293156 40%, #3a2c5b 72%, #47304f 100%);
+}
+
+/* -------------------------------------------------------------------------
+ * 轨道画布：同时受宽度与视口高度约束，保证整条轨道落在首屏
+ * ---------------------------------------------------------------------- */
+.spiral-canvas {
+  width: min(1280px, 96vw, 90svh);
+}
+
+/* -------------------------------------------------------------------------
+ * 星球节点：hover 轻微上浮 + 放大 + 柔光（颜色随节点所在圈层）
+ * ---------------------------------------------------------------------- */
+.spiral-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.spiral-node .planet {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.spiral-node:hover .planet,
+.spiral-node:focus-visible .planet {
+  transform: translateY(-6px) scale(1.045);
+}
+
+.spiral-node .node-ring {
+  transition: stroke 220ms ease, stroke-width 220ms ease, filter 220ms ease;
+}
+
+.spiral-node:hover .node-ring,
+.spiral-node:focus-visible .node-ring {
+  stroke: var(--node-accent);
+  stroke-width: 2.6;
+  filter: drop-shadow(0 0 10px var(--node-glow));
+}
+
+.spiral-node .node-halo {
+  transition: stroke-opacity 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    fill-opacity 480ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter 480ms ease;
+}
+
+.spiral-node:hover .node-halo,
+.spiral-node:focus-visible .node-halo {
+  stroke-opacity: 0.42;
+  fill-opacity: 0.3;
+  filter: drop-shadow(0 0 16px var(--node-glow));
+}
+
+.spiral-node .node-label {
+  transition: fill-opacity 220ms ease;
+}
+
+.spiral-node:hover .node-label,
+.spiral-node:focus-visible .node-label {
+  fill-opacity: 1;
+}
+
+/* -------------------------------------------------------------------------
+ * 中心图案：温暖呼吸光环 + hover 轻微上浮 / 暖橙柔光
+ * ---------------------------------------------------------------------- */
+.core-link {
+  cursor: pointer;
+  transition: transform 260ms ease, filter 260ms ease;
+}
+
+.core-link:hover,
+.core-link:focus-visible {
+  transform: translateY(-6px);
+  filter: drop-shadow(0 0 20px rgba(255, 179, 112, 0.35));
+}
+
+.core-halo {
+  fill: #ffb370;
+  fill-opacity: 0.05;
+  transition: fill-opacity 260ms ease;
+}
+
+.core-link:hover .core-halo,
+.core-link:focus-visible .core-halo {
+  fill-opacity: 0.22;
+}
+
+.core-link svg circle:first-of-type,
+.core-link svg path {
+  transition: stroke 260ms ease, stroke-opacity 260ms ease;
+}
+
+.core-link:hover svg path,
+.core-link:focus-visible svg path {
+  stroke-opacity: 1;
+}
+
+/* -------------------------------------------------------------------------
+ * 轨道末端的呼吸光点（幅度很轻）
+ * ---------------------------------------------------------------------- */
+.breath-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: breathe 4.8s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.88);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.16);
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * 中心提示小字的柔和呼吸闪烁（引导点击，幅度很轻不刺眼）
+ * ---------------------------------------------------------------------- */
+.hint-breathe {
+  animation: hintBreathe 3.8s ease-in-out infinite;
+}
+
+@keyframes hintBreathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.95;
+  }
+}
+
+/* -------------------------------------------------------------------------
+ * 中心圆亮边：贴边极细蓝紫辉光（静态 drop-shadow，无逐帧开销）
+ * ---------------------------------------------------------------------- */
+.core-edge-glow {
+  filter: drop-shadow(0 0 6px rgba(199, 166, 255, 0.32))
+    drop-shadow(0 0 10px rgba(127, 216, 255, 0.16));
+}
+
+/* -------------------------------------------------------------------------
+ * 背景星尘：整层极缓慢漂移 + 少量星星微弱闪烁
+ * 均为 transform/opacity 动画（GPU 合成），数量少、幅度小，不影响流畅度
+ * ---------------------------------------------------------------------- */
+.star-drift {
+  animation: starDrift 110s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes starDrift {
+  from {
+    transform: translate3d(-12px, 8px, 0);
+  }
+  to {
+    transform: translate3d(12px, -8px, 0);
+  }
+}
+
+/* 三组子层各以不同方向 / 速度微漂，叠加整层漂移形成差异速度的自然流动感 */
+.star-float {
+  will-change: transform;
+}
+
+.star-float-a {
+  animation: starFloatA 26s ease-in-out infinite alternate;
+}
+
+.star-float-b {
+  animation: starFloatB 35s ease-in-out infinite alternate;
+}
+
+.star-float-c {
+  animation: starFloatC 21s ease-in-out infinite alternate;
+}
+
+@keyframes starFloatA {
+  from {
+    transform: translate3d(-7px, 5px, 0);
+  }
+  to {
+    transform: translate3d(7px, -5px, 0);
+  }
+}
+
+@keyframes starFloatB {
+  from {
+    transform: translate3d(6px, -8px, 0);
+  }
+  to {
+    transform: translate3d(-6px, 8px, 0);
+  }
+}
+
+@keyframes starFloatC {
+  from {
+    transform: translate3d(4px, 7px, 0);
+  }
+  to {
+    transform: translate3d(-4px, -7px, 0);
+  }
+}
+
+.star-twinkle {
+  animation: starTwinkle 6s ease-in-out infinite;
+}
+
+@keyframes starTwinkle {
+  0%,
+  100% {
+    opacity: var(--tw-min, 0.1);
+  }
+  50% {
+    opacity: var(--tw-max, 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spiral-node .planet,
+  .spiral-node .node-ring,
+  .spiral-node .node-halo,
+  .spiral-node .node-label,
+  .core-link {
+    transition: none;
+  }
+  .breath-dot,
+  .hint-breathe,
+  .star-drift,
+  .star-float,
+  .star-twinkle {
+    animation: none;
+  }
+}
