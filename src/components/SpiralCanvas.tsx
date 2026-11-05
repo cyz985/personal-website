@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
 import type { Milestone, Project, TimeGroup } from '../config'
 import { groupColorOf } from '../config'
 import { CANVAS_SIZE, computeSpiralLayout } from '../lib/spiral'
@@ -56,7 +56,31 @@ export default function SpiralCanvas({
   onRequestDelete,
   note,
 }: SpiralCanvasProps) {
-  const layout = useMemo(() => computeSpiralLayout(projects, milestones, {}, groups), [projects, milestones, groups])
+  const containerRef = useRef<HTMLDivElement>(null)
+  /** 画布实际可用尺寸：随窗口 resize 实时更新，轨道据此自适应 */
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const measure = () => {
+      const rect = el.getBoundingClientRect()
+      setCanvasSize({ width: Math.round(rect.width), height: Math.round(rect.height) })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const layout = useMemo(() => {
+    const width = canvasSize.width || CANVAS_SIZE
+    const height = canvasSize.height || CANVAS_SIZE
+    return computeSpiralLayout(projects, milestones, { canvasWidth: width, canvasHeight: height }, groups)
+  }, [projects, milestones, groups, canvasSize.width, canvasSize.height])
+
+  /** 统一缩放系数：节点半径 / 字号 / 线宽都按它换算，保证不被椭圆拉伸变形 */
+  const u = layout.unitScale
 
   /** 右键删除确认浮层的状态 */
   const [pendingDelete, setPendingDelete] = useState<{
@@ -96,9 +120,10 @@ export default function SpiralCanvas({
   const DELETE_CANCEL_BTN = '取消'
 
   return (
-    <div className="spiral-canvas relative mx-auto aspect-square">
+    <div ref={containerRef} className="spiral-canvas relative h-full w-full">
       <svg
-        viewBox={`0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}`}
+        viewBox={`0 0 ${layout.width} ${layout.height}`}
+        preserveAspectRatio="none"
         className="absolute inset-0 h-full w-full overflow-visible"
         role="list"
         aria-label="项目成长时间轴"
@@ -108,9 +133,9 @@ export default function SpiralCanvas({
           <radialGradient
             id="track-gradient"
             gradientUnits="userSpaceOnUse"
-            cx={layout.center}
-            cy={layout.center}
-            r={CANVAS_SIZE / 2}
+            cx={layout.centerX}
+            cy={layout.centerY}
+            r={Math.hypot(layout.width, layout.height) / 2}
           >
             <stop offset="0%" stopColor="#FFB370" stopOpacity="0.85" />
             <stop offset="30%" stopColor="#FFB370" stopOpacity="0.7" />
@@ -138,7 +163,7 @@ export default function SpiralCanvas({
           d={layout.trackPath}
           fill="none"
           stroke="url(#track-gradient)"
-          strokeWidth={22}
+          strokeWidth={22 * u}
           strokeOpacity={0.07}
           strokeLinecap="round"
         />
@@ -146,7 +171,7 @@ export default function SpiralCanvas({
           d={layout.trackPath}
           fill="none"
           stroke="url(#track-gradient)"
-          strokeWidth={8}
+          strokeWidth={8 * u}
           strokeOpacity={0.16}
           strokeLinecap="round"
         />
@@ -154,7 +179,7 @@ export default function SpiralCanvas({
           d={layout.trackPath}
           fill="none"
           stroke="url(#track-gradient)"
-          strokeWidth={2.2}
+          strokeWidth={2.2 * u}
           strokeOpacity={0.92}
           strokeLinecap="round"
         />
@@ -169,33 +194,33 @@ export default function SpiralCanvas({
               y2={milestone.leaderY}
               stroke="#8FA3C4"
               strokeOpacity={0.2}
-              strokeWidth={1}
+              strokeWidth={1 * u}
               strokeLinecap="round"
             />
             <circle
               cx={milestone.x}
               cy={milestone.y}
-              r={6.5}
+              r={6.5 * u}
               fill="#F5F1E8"
               fillOpacity={0.06}
               stroke="#FFB370"
               strokeOpacity={0.3}
-              strokeWidth={1}
+              strokeWidth={1 * u}
             />
-            <circle cx={milestone.x} cy={milestone.y} r={2.6} fill="#F5F1E8" fillOpacity={0.72} />
+            <circle cx={milestone.x} cy={milestone.y} r={2.6 * u} fill="#F5F1E8" fillOpacity={0.72} />
             <text
               x={milestone.labelX}
               y={milestone.labelY}
               textAnchor={milestone.anchor}
-              fontSize={14.5}
+              fontSize={14.5 * u}
               fontWeight={600}
-              letterSpacing={0.6}
+              letterSpacing={0.6 * u}
               fill="#FFD0A6"
               fillOpacity={0.96}
               paintOrder="stroke"
               stroke="#1B2A4A"
               strokeOpacity={0.85}
-              strokeWidth={3}
+              strokeWidth={3 * u}
             >
               {milestone.time}
             </text>
@@ -203,15 +228,15 @@ export default function SpiralCanvas({
               x={milestone.labelX}
               y={milestone.labelY2}
               textAnchor={milestone.anchor}
-              fontSize={15.5}
+              fontSize={15.5 * u}
               fontWeight={600}
-              letterSpacing={0.4}
+              letterSpacing={0.4 * u}
               fill="#C3CFE4"
               fillOpacity={0.94}
               paintOrder="stroke"
               stroke="#1B2A4A"
               strokeOpacity={0.85}
-              strokeWidth={3.2}
+              strokeWidth={3.2 * u}
             >
               {milestone.label}
             </text>
@@ -230,13 +255,13 @@ export default function SpiralCanvas({
           const lines = nameLines(node.project.name)
           // 名称字号同时受星球半径与最长一行的字数约束，避免文字顶出球体
           const longest = Math.max(...lines.map((line) => Array.from(line).length))
-          const nameFont = Math.min(27, Math.max(13, Math.min(r * 0.34, (r * 1.6) / longest)))
+          const nameFont = Math.min(27 * u, Math.max(13 * u, Math.min(r * 0.34, (r * 1.6) / longest)))
           const subFont = nameFont * 0.86
-          const timeFont = Math.min(14, Math.max(9.5, r * 0.155))
-          const tagFont = Math.min(12, Math.max(8, r * 0.135))
-          const tagWidth = node.project.tag.length * tagFont * 1.06 + 12
+          const timeFont = Math.min(14 * u, Math.max(9.5 * u, r * 0.155))
+          const tagFont = Math.min(12 * u, Math.max(8 * u, r * 0.135))
+          const tagWidth = node.project.tag.length * tagFont * 1.06 + 12 * u
           const tagHeight = tagFont * 1.9
-          const ringWidth = 1.4 + 1.1 * node.progress
+          const ringWidth = (1.4 + 1.1 * node.progress) * u
           const nameY1 = lines.length > 1 ? node.y - r * 0.06 : node.y + nameFont * 0.34
           const nameY2 = nameY1 + nameFont * 1.06
 
@@ -270,12 +295,12 @@ export default function SpiralCanvas({
                   className="node-halo"
                   cx={node.x}
                   cy={node.y}
-                  r={r + 15}
+                  r={r + 15 * u}
                   fill="url(#planet-glow)"
                   fillOpacity={0.1}
                   stroke={accent}
                   strokeOpacity={0.1}
-                  strokeWidth={1.2}
+                  strokeWidth={1.2 * u}
                 />
 
                 {/* 球体 */}
@@ -301,13 +326,13 @@ export default function SpiralCanvas({
                   fill="none"
                   stroke={accent}
                   strokeOpacity={0.42}
-                  strokeWidth={1.6}
+                  strokeWidth={1.6 * u}
                   strokeLinecap="round"
                 />
                 <circle
                   cx={node.x - r * 0.5}
                   cy={node.y - r * 0.52}
-                  r={Math.max(1.4, r * 0.05)}
+                  r={Math.max(1.4 * u, r * 0.05)}
                   fill="#F5F1E8"
                   fillOpacity={0.3}
                 />
@@ -323,14 +348,14 @@ export default function SpiralCanvas({
                   fillOpacity={0.16}
                   stroke={accent}
                   strokeOpacity={0.3}
-                  strokeWidth={0.9}
+                  strokeWidth={0.9 * u}
                 />
                 <text
                   x={node.x}
                   y={node.y - r * 0.6 + tagFont * 0.36}
                   textAnchor="middle"
                   fontSize={tagFont}
-                  letterSpacing={0.5}
+                  letterSpacing={0.5 * u}
                   fill={accent}
                   fillOpacity={0.95}
                 >
@@ -347,13 +372,13 @@ export default function SpiralCanvas({
                     textAnchor="middle"
                     fontSize={index === 0 ? nameFont : subFont}
                     fontWeight={500}
-                    letterSpacing={0.3}
+                    letterSpacing={0.3 * u}
                     fill={node.project.nameColor ?? '#F5F1E8'}
                     fillOpacity={0.92}
                     paintOrder="stroke"
                     stroke="#1B2A4A"
                     strokeOpacity={0.7}
-                    strokeWidth={2}
+                    strokeWidth={2 * u}
                   >
                     {line}
                   </text>
@@ -365,7 +390,7 @@ export default function SpiralCanvas({
                   y={node.y + r * 0.62}
                   textAnchor="middle"
                   fontSize={timeFont}
-                  letterSpacing={1.2}
+                  letterSpacing={1.2 * u}
                   fill="#C9D5EA"
                   fillOpacity={0.85}
                 >
@@ -378,13 +403,13 @@ export default function SpiralCanvas({
 
         {/* 轨道末端：呼吸光点 + 未完待续 */}
         <g>
-          <circle cx={layout.tail.x} cy={layout.tail.y} r={16} fill="#FFB370" fillOpacity={0.1} />
-          <circle cx={layout.tail.x} cy={layout.tail.y} r={9} fill="#FFB370" fillOpacity={0.18} />
+          <circle cx={layout.tail.x} cy={layout.tail.y} r={16 * u} fill="#FFB370" fillOpacity={0.1} />
+          <circle cx={layout.tail.x} cy={layout.tail.y} r={9 * u} fill="#FFB370" fillOpacity={0.18} />
           <circle
             className="breath-dot"
             cx={layout.tail.x}
             cy={layout.tail.y}
-            r={5}
+            r={5 * u}
             fill="#FFC79B"
             fillOpacity={0.95}
           />
@@ -392,14 +417,14 @@ export default function SpiralCanvas({
             x={layout.tail.textX}
             y={layout.tail.textY}
             textAnchor="middle"
-            fontSize={24}
-            letterSpacing={1.2}
+            fontSize={24 * u}
+            letterSpacing={1.2 * u}
             fill="#F5F1E8"
             fillOpacity={0.9}
             paintOrder="stroke"
             stroke="#1B2A4A"
             strokeOpacity={0.85}
-            strokeWidth={3}
+            strokeWidth={3 * u}
           >
             {note}
           </text>
@@ -411,8 +436,8 @@ export default function SpiralCanvas({
         <div
           className="absolute z-30 min-w-[240px] max-w-[300px] rounded-xl border border-ember/40 bg-ink/95 px-4 py-3 text-paper shadow-2xl backdrop-blur-md"
           style={{
-            left: Math.min(pendingDelete.x, 1000 - 300), // 避免贴右边缘
-            top: Math.min(pendingDelete.y, 1000 - 140), // 避免贴下边缘
+            left: Math.min(pendingDelete.x, Math.max(layout.width - 160, 0)), // 避免贴右边缘
+            top: Math.min(pendingDelete.y, Math.max(layout.height - 120, 0)), // 避免贴下边缘
             transform: 'translate(-50%, -100%)', // 悬浮在右键位置的上方
           }}
           onClick={(e) => e.stopPropagation()}

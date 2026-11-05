@@ -36,6 +36,12 @@ export interface SpiralOptions {
   tailDirection: number
   /** 轨道在光点之后继续向画布外延伸的距离（逻辑单位） */
   tailOverflow: number
+  /** 实际画布宽度（像素/相对单位）。不传时退回正方形 CANVAS_SIZE */
+  canvasWidth?: number
+  /** 实际画布高度（像素/相对单位）。不传时退回正方形 CANVAS_SIZE */
+  canvasHeight?: number
+  /** 轨道外缘到画布边缘的安全留白比例（8%~12%，默认 0.09） */
+  safePaddingRatio?: number
 }
 
 /** 默认参数：螺旋轨道向外舒展，节点沿螺旋自然铺开，不扎堆一侧 */
@@ -100,8 +106,19 @@ export interface SpiralTail {
 
 /** 布局结果 */
 export interface SpiralLayout {
-  size: number
-  center: number
+  /** 画布实际宽度 */
+  width: number
+  /** 画布实际高度 */
+  height: number
+  /** 画布中心 X（中心圆始终落在这里） */
+  centerX: number
+  /** 画布中心 Y */
+  centerY: number
+  /**
+   * 统一缩放系数：节点半径 / 字号 / 线宽都用它换算，
+   * 保证星球永远是正圆、文字比例一致，不会被椭圆映射拉扁
+   */
+  unitScale: number
   nodes: SpiralNode[]
   milestones: SpiralMilestone[]
   /** 轨道 SVG path（从内圈起点一直画到画布外） */
@@ -121,6 +138,8 @@ function sampleTrack(
   radius0: number,
   spiralB: number,
   startAngleRad: number,
+  /** 坐标映射：把逻辑正方形坐标映射到实际画布（用于椭圆拉伸） */
+  map?: (x: number, y: number) => [number, number],
 ): string {
   const span = Math.max(thetaTo - thetaFrom, 0.1)
   // 0.06 弧度一个采样点：一条轨道约 300 个点，静态路径，渲染开销极小
@@ -131,9 +150,10 @@ function sampleTrack(
     const theta = thetaFrom + (span * i) / steps
     const radius = radius0 + spiralB * theta
     const angle = startAngleRad + theta
-    points.push(
-      `${(center + radius * Math.cos(angle)).toFixed(1)} ${(center + radius * Math.sin(angle)).toFixed(1)}`,
-    )
+    const x = center + radius * Math.cos(angle)
+    const y = center + radius * Math.sin(angle)
+    const [px, py] = map ? map(x, y) : [x, y]
+    points.push(`${px.toFixed(1)} ${py.toFixed(1)}`)
   }
 
   return `M ${points.join(' L ')}`
@@ -229,7 +249,7 @@ export function computeSpiralLayout(
   const tailTheta = Math.max((HALF - radius0) / scaledB, 1)
   const startAngleRad = opts.tailDirection * DEG - tailTheta
 
-  // ---- 4. 节点绝对坐标 ----
+  // ---- 4. 节点绝对坐标（先按逻辑正方形 CANVAS_SIZE 计算） ----
   const nodes: SpiralNode[] = placed.map((item) => {
     const angle = startAngleRad + item.theta
     const polarRadius = item.radius * scale
@@ -246,6 +266,39 @@ export function computeSpiralLayout(
       progress: item.progress,
     }
   })
+
+  // ---- 4.5 自适应映射：逻辑正方形 → 实际画布（宽屏拉成横向椭圆 / 窄屏纵向椭圆 / 方形保持圆形）
+  const canvasW = Math.max(opts.canvasWidth ?? CANVAS_SIZE, 240)
+  const canvasH = Math.max(opts.canvasHeight ?? CANVAS_SIZE, 240)
+  // 安全留白比例限制在 4%~18%，默认 9%
+  const safeRatio = Math.min(Math.max(opts.safePaddingRatio ?? 0.09, 0.04), 0.18)
+
+  // 逻辑空间里节点外缘的最大占位（左右/上下分别计算，保证椭圆贴合画布）
+  let extX = 1
+  let extY = 1
+  nodes.forEach((node) => {
+    extX = Math.max(extX, Math.abs(node.x - HALF) + node.nodeRadius)
+    extY = Math.max(extY, Math.abs(node.y - HALF) + node.nodeRadius)
+  })
+
+  // 可用半径：扣掉安全留白，确保最外侧星球不会被裁切
+  const availX = Math.max(canvasW / 2 - canvasW * safeRatio, 40)
+  const availY = Math.max(canvasH / 2 - canvasH * safeRatio, 40)
+  const kx = availX / extX
+  const ky = availY / extY
+  // 节点半径 / 字号 / 线宽统一用一个系数，星球不会被拉成椭圆
+  const unitScale = Math.min(kx, ky)
+
+  const mapPoint = (x: number, y: number): [number, number] => [
+    canvasW / 2 + (x - HALF) * kx,
+    canvasH / 2 + (y - HALF) * ky,
+  ]
+
+  const mappedNodes: SpiralNode[] = nodes.map((node) => {
+    const [x, y] = mapPoint(node.x, node.y)
+    return { ...node, x, y, nodeRadius: node.nodeRadius * unitScale }
+  })
+
 
   // ---- 5. 里程碑 + 自动分组节点：落在相邻节点的间隙里，并自动避让所有项目节点 ----
   const gapCount = placed.length - 1
@@ -407,24 +460,55 @@ export function computeSpiralLayout(
     })
   }
 
-  // ---- 6. 轨道：从起点一直画到画布边缘之外 ----
+  // ---- 6. 轨道：从起点一直画到画布边缘之外（路径同样做椭圆映射） ----
   const tailEndTheta = Math.max(
     tailTheta + 0.3,
     (HALF + opts.tailOverflow - radius0) / scaledB,
   )
-  const trackPath = sampleTrack(0, tailEndTheta, HALF, radius0, scaledB, startAngleRad)
+  const trackPath = sampleTrack(
+    0,
+    tailEndTheta,
+    HALF,
+    radius0,
+    scaledB,
+    startAngleRad,
+    mapPoint,
+  )
 
   // ---- 7. 末端呼吸光点 + "未完待续" 文字（沿半径方向略微向外一点） ----
   const tailAngle = startAngleRad + tailTheta
   const tailX = HALF + HALF * Math.cos(tailAngle)
   const tailY = HALF + HALF * Math.sin(tailAngle)
   const textRadius = HALF + 34
+  const [mappedTailX, mappedTailY] = mapPoint(tailX, tailY)
+  const [mappedTextX, mappedTextY] = mapPoint(
+    HALF + textRadius * Math.cos(tailAngle),
+    HALF + textRadius * Math.sin(tailAngle),
+  )
   const tail: SpiralTail = {
-    x: tailX,
-    y: tailY,
-    textX: HALF + textRadius * Math.cos(tailAngle),
-    textY: HALF + textRadius * Math.sin(tailAngle),
+    x: mappedTailX,
+    y: mappedTailY,
+    textX: mappedTextX,
+    textY: mappedTextY,
   }
 
-  return { size: CANVAS_SIZE, center: HALF, nodes, milestones: spaced, trackPath, tail }
+  // 里程碑坐标同样映射到实际画布（行距用统一缩放系数，避免文字被拉伸）
+  const mappedMilestones: SpiralMilestone[] = spaced.map((ms) => {
+    const [x, y] = mapPoint(ms.x, ms.y)
+    const [labelX, labelY] = mapPoint(ms.labelX, ms.labelY)
+    const [leaderX, leaderY] = mapPoint(ms.leaderX, ms.leaderY)
+    return { ...ms, x, y, labelX, labelY, labelY2: labelY + 16 * unitScale, leaderX, leaderY }
+  })
+
+  return {
+    width: canvasW,
+    height: canvasH,
+    centerX: canvasW / 2,
+    centerY: canvasH / 2,
+    unitScale,
+    nodes: mappedNodes,
+    milestones: mappedMilestones,
+    trackPath,
+    tail,
+  }
 }

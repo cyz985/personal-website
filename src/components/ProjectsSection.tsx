@@ -41,8 +41,8 @@ export default function ProjectsSection({
 }: ProjectsSectionProps) {
   return (
     <div className="absolute inset-0 flex items-center justify-center px-6">
-      {/* 宽屏：螺旋时间轴，中心图案叠在正中央（整体略上移，给末端文案留出呼吸） */}
-      <div className="relative hidden w-full -translate-y-2.5 sm:block">
+      {/* 宽屏：螺旋时间轴铺满可用画布，轨道随屏幕比例自适应为圆 / 横向椭圆 / 纵向椭圆 */}
+      <div className="absolute inset-0 hidden sm:block">
         <SpiralCanvas
           projects={projects}
           groups={groups}
