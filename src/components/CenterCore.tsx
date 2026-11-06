@@ -56,11 +56,11 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
                 <stop offset="45%" stopColor="#F7DCFF" stopOpacity="0.5" />
                 <stop offset="100%" stopColor="#BEEBFF" stopOpacity="0.55" />
               </linearGradient>
-              {/* 盘面底色：极低不透明度的干净蓝紫渐变，星空与背景几乎完全透出 */}
+              {/* 盘面底色：几乎全透明，只剩极淡的一层冰蓝，后方星空直接透出 */}
               <radialGradient id="core-panel" cx="50%" cy="38%" r="72%">
-                <stop offset="0%" stopColor="#8FB2E4" stopOpacity="0.17" />
-                <stop offset="48%" stopColor="#5B79A8" stopOpacity="0.1" />
-                <stop offset="100%" stopColor="#3A4E75" stopOpacity="0.04" />
+                <stop offset="0%" stopColor="#A8C6F0" stopOpacity="0.07" />
+                <stop offset="48%" stopColor="#6C8CB8" stopOpacity="0.04" />
+                <stop offset="100%" stopColor="#3A4E75" stopOpacity="0.015" />
               </radialGradient>
               {/* 表面轻微色温：左上暖橙、中下淡紫，都极淡 */}
               <radialGradient id="core-tint-warm" cx="32%" cy="26%" r="70%">
@@ -86,13 +86,13 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
             {/* 盘体厚度：只在下缘露出一线彩色侧壁，薄且干净 */}
             <ellipse
               cx="50"
-              cy="51.6"
+              cy="51.4"
               rx="46"
               ry="46"
               fill="none"
               stroke="url(#core-ring)"
-              strokeOpacity="0.22"
-              strokeWidth="1.6"
+              strokeOpacity="0.16"
+              strokeWidth="1.3"
             />
 
             {/* 主圆环：清晰彩色细环 + 静态贴边辉光 */}
@@ -104,30 +104,30 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               ry="46"
               fill="none"
               stroke="url(#core-ring)"
-              strokeWidth="2.4"
+              strokeWidth="2"
             />
 
             {/* 环内侧一圈浅色高光线，只在上半部明显，增加环的清晰度 */}
             <ellipse
               cx="50"
               cy="50"
-              rx="44.4"
-              ry="44.4"
+              rx="44.6"
+              ry="44.6"
               fill="none"
               stroke="url(#core-ring-inner)"
-              strokeWidth="1"
+              strokeWidth="0.8"
             />
 
             {/* 外圈极轻的亮线：替代大面积柔光光晕 */}
             <ellipse
               cx="50"
               cy="50"
-              rx="48.2"
-              ry="48.2"
+              rx="48"
+              ry="48"
               fill="none"
               stroke="url(#core-ring)"
-              strokeOpacity="0.16"
-              strokeWidth="1"
+              strokeOpacity="0.13"
+              strokeWidth="0.8"
             />
 
             {/* 内圈细纹 */}
@@ -161,6 +161,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
             aria-hidden="true"
           >
             <text
+              className="core-name"
               x="50"
               y="50"
               textAnchor="middle"
@@ -182,7 +183,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
       </a>
 
       {/* 中心下方小字提示：比名字弱一档，保持柔和但清楚 */}
-      <span className="hint-breathe pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap text-[11px] tracking-[0.16em] text-muted/75">
+      <span className="core-hint hint-breathe pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap text-[11px] tracking-[0.16em] text-muted/75">
         {hint}
       </span>
     </div>

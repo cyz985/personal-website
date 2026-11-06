@@ -55,8 +55,8 @@ const STARS: Star[] = (() => {
     return seed / 2147483647
   }
 
-  const COLORS = ['#F5F1E8', '#F5F1E8', '#F5F1E8', '#C7A6FF', '#CFE4FF', '#FFD98E']
-  const TOTAL = 380
+  const COLORS = ['#F2F7FF', '#F2F7FF', '#E4EFFF', '#DCEBFF', '#C7A6FF', '#FFD98E']
+  const TOTAL = 215
   const list: Star[] = []
 
   for (let i = 0; i < TOTAL; i++) {
@@ -67,31 +67,31 @@ const STARS: Star[] = (() => {
 
     const roll = rand()
     let kind: StarKind = 'dot'
-    let r = 0.9 + rand() * 0.7
-    let opacity = 0.28 + rand() * 0.22
+    let r = 0.8 + rand() * 0.6
+    let opacity = 0.34 + rand() * 0.24
     let color = COLORS[Math.floor(rand() * COLORS.length)]
 
-    if (roll < 0.2) {
+    if (roll < 0.16) {
       // 十字星
       kind = 'cross'
-      r = 1.3 + rand() * 0.8
-      opacity = 0.38 + rand() * 0.22
-      color = rand() < 0.4 ? '#C7A6FF' : '#F5F1E8'
-    } else if (roll < 0.35) {
+      r = 1.2 + rand() * 0.7
+      opacity = 0.4 + rand() * 0.22
+      color = rand() < 0.35 ? '#C7A6FF' : '#F2F7FF'
+    } else if (roll < 0.3) {
       // 四角星芒
       kind = 'star'
-      r = 1.3 + rand() * 0.9
-      opacity = 0.36 + rand() * 0.22
-      color = rand() < 0.45 ? '#CFE4FF' : '#F5F1E8'
-    } else if (roll < 0.78) {
-      // 中等光点：主要密度来源，清晰但不刺眼
-      r = 2 + rand() * 0.8
-      opacity = 0.45 + rand() * 0.22
+      r = 1.2 + rand() * 0.8
+      opacity = 0.38 + rand() * 0.22
+      color = rand() < 0.4 ? '#DCEBFF' : '#F2F7FF'
+    } else if (roll < 0.94) {
+      // 水晶光点：主体密度，外圈淡光 + 内芯高亮
+      r = 1.9 + rand() * 0.8
+      opacity = 0.46 + rand() * 0.2
     } else {
-      // 少量明亮锚点：让星空有轻重层次
-      r = 2.4 + rand() * 0.8
-      opacity = 0.62 + rand() * 0.18
-      color = rand() < 0.5 ? '#FFD98E' : '#F5F1E8'
+      // 极少量明亮锚点
+      r = 2.5 + rand() * 0.7
+      opacity = 0.62 + rand() * 0.16
+      color = rand() < 0.5 ? '#FFD98E' : '#FFFFFF'
     }
 
     // 闪烁节奏分层：高频微闪 / 低频呼吸 / 常亮
@@ -149,7 +149,7 @@ export default function StarField() {
 
       const zones: Zone[] = []
       document
-        .querySelectorAll('.spiral-node, .milestone, .core-link, .spiral-tail')
+        .querySelectorAll('.spiral-node, .milestone, .core-name, .core-hint, .spiral-tail')
         .forEach((el) => {
           const rect = el.getBoundingClientRect()
           if (rect.width === 0 && rect.height === 0) return
@@ -304,7 +304,11 @@ export default function StarField() {
                         fill={star.color}
                       />
                     ) : (
-                      <circle cx={cx} cy={cy} r={star.r} fill={star.color} />
+                      <>
+                        {/* 水晶光点：淡色外晕 + 高亮内芯，比纯白圆点更透亮 */}
+                        <circle cx={cx} cy={cy} r={star.r} fill={star.color} fillOpacity={0.32} />
+                        <circle cx={cx} cy={cy} r={star.r * 0.38} fill="#FFFFFF" fillOpacity={0.9} />
+                      </>
                     )}
                   </g>
                 )

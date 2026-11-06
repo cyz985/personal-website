@@ -280,7 +280,7 @@ export default function SpiralCanvas({
           fill="none"
           stroke="url(#track-gradient)"
           strokeWidth={22 * u}
-          strokeOpacity={0.07}
+          strokeOpacity={0.045}
           strokeLinecap="round"
         />
         <path
@@ -288,10 +288,11 @@ export default function SpiralCanvas({
           fill="none"
           stroke="url(#track-gradient)"
           strokeWidth={8 * u}
-          strokeOpacity={0.16}
+          strokeOpacity={0.1}
           strokeLinecap="round"
         />
-        {/* 主线：按 3D 深度切片渲染，远处更细更淡、近处更实 */}
+        {/* 主线：按 3D 深度切片渲染。远处只轻微衰减线宽与亮度，
+            并强制几何精度渲染，保证画面上方（远端）轨道线同样锐利清晰 */}
         {layout.trackSegments.map((segment, index) => (
           <path
             key={`track-${index}`}
@@ -299,9 +300,10 @@ export default function SpiralCanvas({
             d={segment.d}
             fill="none"
             stroke="url(#track-gradient)"
-            strokeWidth={2.2 * u * (0.5 + 0.5 * segment.depth)}
-            strokeOpacity={0.3 + 0.62 * segment.depth}
+            strokeWidth={2.2 * u * (0.82 + 0.18 * segment.depth)}
+            strokeOpacity={0.58 + 0.42 * segment.depth}
             strokeLinecap="round"
+            shapeRendering="geometricPrecision"
           />
         ))}
 
