@@ -44,6 +44,22 @@
 }
 
 /* -------------------------------------------------------------------------
+ * 3D 透视：舞台负责 perspective，场景层负责 rotate/scale
+ * 透视只影响轨道与星球，中心名字卡片在舞台之外，始终保持平面清晰
+ * ---------------------------------------------------------------------- */
+.spiral-stage {
+  perspective: 1600px;
+  perspective-origin: 50% 50%;
+  touch-action: none;
+}
+
+.spiral-scene {
+  transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: visible;
+}
+
+/* -------------------------------------------------------------------------
  * 星球节点：hover 轻微上浮 + 放大 + 柔光（颜色随节点所在圈层）
  * ---------------------------------------------------------------------- */
 .spiral-node {
@@ -253,6 +269,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .spiral-scene {
+    transition: none;
+  }
   .spiral-node .planet,
   .spiral-node .node-ring,
   .spiral-node .node-halo,

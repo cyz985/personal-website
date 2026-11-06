@@ -42,6 +42,10 @@ export interface SpiralOptions {
   canvasHeight?: number
   /** 轨道外缘到画布边缘的安全留白比例（8%~12%，默认 0.09） */
   safePaddingRatio?: number
+  /** 3D 透视：轨道平面向后倾斜的角度（度），0 = 正视无纵深 */
+  tiltDeg?: number
+  /** 透视焦距（逻辑单位）：越大透视越平缓、近大远小越弱 */
+  perspective?: number
 }
 
 /** 默认参数：螺旋轨道向外舒展，节点沿螺旋自然铺开，不扎堆一侧 */
@@ -54,6 +58,8 @@ export const defaultSpiralOptions: SpiralOptions = {
   edgePadding: 16, // 最外圈节点几乎贴到画布边缘
   tailDirection: 92, // 螺旋末端（未完待续光点）朝向，基本正下方
   tailOverflow: 24,
+  tiltDeg: 18, // 轨道平面后倾 18°，上半圈变远、下半圈变近
+  perspective: 1400, // 焦距适中：近大远小约 ±10%，克制但能看出纵深
 }
 
 /** 画布逻辑边长（SVG viewBox 固定为 1000×1000，实际显示尺寸由 CSS 控制） */
@@ -75,6 +81,10 @@ export interface SpiralNode {
   angleDeg: number
   /** 节点在成长进度中的比例 0~1（用于选色与字号） */
   progress: number
+  /** 透视深度：0 = 最远（轨道上侧），1 = 最近（轨道下侧） */
+  depth: number
+  /** 该节点的透视缩放系数（近处 > 1，远处 < 1） */
+  scale: number
 }
 
 /** 轨道上的时间里程碑 */
@@ -94,6 +104,15 @@ export interface SpiralMilestone {
   /** 文字锚点：从小圆点引出的一根很淡的引导线终点 */
   leaderX: number
   leaderY: number
+  /** 透视深度：0 = 最远，1 = 最近（用于远近淡出） */
+  depth: number
+}
+
+/** 轨道路径的一段（按深度切片，远处更细更淡） */
+export interface TrackSegment {
+  d: string
+  /** 0 = 最远，1 = 最近 */
+  depth: number
 }
 
 /** 螺旋末端的呼吸光点与文字位置 */
@@ -123,6 +142,8 @@ export interface SpiralLayout {
   milestones: SpiralMilestone[]
   /** 轨道 SVG path（从内圈起点一直画到画布外） */
   trackPath: string
+  /** 按透视深度切分的轨道路径段：用于让远处线条更细、更淡 */
+  trackSegments: TrackSegment[]
   tail: SpiralTail
 }
 
@@ -249,17 +270,14 @@ export function computeSpiralLayout(
   const tailTheta = Math.max((HALF - radius0) / scaledB, 1)
   const startAngleRad = opts.tailDirection * DEG - tailTheta
 
-  // ---- 4. 节点绝对坐标（先按逻辑正方形 CANVAS_SIZE 计算） ----
-  const nodes: SpiralNode[] = placed.map((item) => {
+  // ---- 4. 平面坐标（透视前的椭圆环位置） ----
+  const flat = placed.map((item) => {
     const angle = startAngleRad + item.theta
     const polarRadius = item.radius * scale
-    const x = HALF + polarRadius * Math.cos(angle)
-    const y = HALF + polarRadius * Math.sin(angle)
-
     return {
       project: item.project,
-      x,
-      y,
+      x: HALF + polarRadius * Math.cos(angle),
+      y: HALF + polarRadius * Math.sin(angle),
       nodeRadius: item.nodeRadius * scale,
       polarRadius,
       angleDeg: angle / DEG,
@@ -267,7 +285,69 @@ export function computeSpiralLayout(
     }
   })
 
-  // ---- 4.5 自适应映射：逻辑正方形 → 实际画布（宽屏拉成横向椭圆 / 窄屏纵向椭圆 / 方形保持圆形）
+  // ---- 4.2 3D 透视：轨道平面后倾，上半圈远离镜头（收缩变淡）、下半圈靠近镜头（放大更实） ----
+  const tiltRad = Math.min(Math.max(opts.tiltDeg ?? 0, 0), 55) * DEG
+  const tiltCos = Math.cos(tiltRad)
+  const tiltSin = Math.sin(tiltRad)
+  const focal = Math.max(opts.perspective ?? 1400, 400)
+
+  /** 某条水平线的透视缩放：> 1 更近、< 1 更远 */
+  const perspAt = (y: number) => focal / (focal - (y - HALF) * tiltSin)
+
+  const projectFlat = (x: number, y: number) => {
+    const persp = perspAt(y)
+    return {
+      x: HALF + (x - HALF) * persp,
+      y: HALF + (y - HALF) * tiltCos * persp,
+      persp,
+    }
+  }
+
+  // 透视后上下不对称，整体平移回画布中心，保持构图中正
+  let rawMinY = Infinity
+  let rawMaxY = -Infinity
+  flat.forEach((item) => {
+    const p = projectFlat(item.x, item.y)
+    const r = item.nodeRadius * p.persp
+    rawMinY = Math.min(rawMinY, p.y - r)
+    rawMaxY = Math.max(rawMaxY, p.y + r)
+  })
+  const shiftY = Number.isFinite(rawMinY) ? HALF - (rawMinY + rawMaxY) / 2 : 0
+
+  const project = (x: number, y: number) => {
+    const p = projectFlat(x, y)
+    return { x: p.x, y: p.y + shiftY, persp: p.persp }
+  }
+
+  // 深度归一化：0 = 最远（上），1 = 最近（下）
+  let perspMin = Infinity
+  let perspMax = -Infinity
+  flat.forEach((item) => {
+    const p = perspAt(item.y)
+    perspMin = Math.min(perspMin, p)
+    perspMax = Math.max(perspMax, p)
+  })
+  if (!Number.isFinite(perspMin) || perspMax - perspMin < 1e-6) {
+    perspMin = 1
+    perspMax = 1
+  }
+  const depthOf = (persp: number) =>
+    Math.min(Math.max((persp - perspMin) / (perspMax - perspMin), 0), 1)
+
+  // ---- 4.4 节点坐标（已带透视近大远小） ----
+  const nodes: SpiralNode[] = flat.map((item) => {
+    const p = project(item.x, item.y)
+    return {
+      ...item,
+      x: p.x,
+      y: p.y,
+      nodeRadius: item.nodeRadius * p.persp,
+      depth: depthOf(p.persp),
+      scale: p.persp,
+    }
+  })
+
+  // ---- 4.5 自适应映射：逻辑坐标 → 实际画布（宽屏拉成横向椭圆 / 窄屏纵向椭圆 / 方形保持圆形）
   const canvasW = Math.max(opts.canvasWidth ?? CANVAS_SIZE, 240)
   const canvasH = Math.max(opts.canvasHeight ?? CANVAS_SIZE, 240)
   // 安全留白比例限制在 4%~18%，默认 9%
@@ -299,6 +379,12 @@ export function computeSpiralLayout(
     canvasW / 2 + (x - HALF) * kx,
     canvasH / 2 + (y - HALF) * ky,
   ]
+
+  /** 平面坐标 → 透视 → 画布坐标（轨道 / 里程碑 / 末端共用同一套投影） */
+  const viewMap = (x: number, y: number): [number, number] => {
+    const p = project(x, y)
+    return mapPoint(p.x, p.y)
+  }
 
   const mappedNodes: SpiralNode[] = nodes.map((node) => {
     const [x, y] = mapPoint(node.x, node.y)
@@ -346,8 +432,11 @@ export function computeSpiralLayout(
       const angle = startAngleRad + midTheta
       const cos = Math.cos(angle)
       const sin = Math.sin(angle)
-      const dotX = HALF + radius * cos
-      const dotY = HALF + radius * sin
+      // 小圆点同样跟随 3D 透视
+      const dotProj = project(HALF + radius * cos, HALF + radius * sin)
+      const dotX = dotProj.x
+      const dotY = dotProj.y
+      const dotDepth = depthOf(dotProj.persp)
 
       // 文字块尺寸（含少量描边留白）
       const boxWidth =
@@ -383,8 +472,10 @@ export function computeSpiralLayout(
       for (const offset of offsets) {
         const polar = radius + offset
         if (polar < 40) continue
-        const px = HALF + polar * cos
-        const py = HALF + polar * sin
+        // 候选位置同样做透视，保证文字偏移方向与渲染位置一致
+        const probe = project(HALF + polar * cos, HALF + polar * sin)
+        const px = probe.x
+        const py = probe.y
 
         for (const anchor of anchors) {
           const labelX = anchor === 'start' ? px + 6 : anchor === 'end' ? px - 6 : px
@@ -462,11 +553,12 @@ export function computeSpiralLayout(
         anchor: picked.anchor,
         leaderX: picked.px,
         leaderY: picked.py,
+        depth: dotDepth,
       })
     })
   }
 
-  // ---- 6. 轨道：从起点一直画到画布边缘之外（路径同样做椭圆映射） ----
+  // ---- 6. 轨道：从起点一直画到画布边缘之外（路径同样做透视 + 椭圆映射） ----
   const tailEndTheta = Math.max(
     tailTheta + 0.3,
     (HALF + opts.tailOverflow - radius0) / scaledB,
@@ -478,16 +570,30 @@ export function computeSpiralLayout(
     radius0,
     scaledB,
     startAngleRad,
-    mapPoint,
+    viewMap,
   )
+
+  // 主线按深度切片：远处更细、更淡，近处更实
+  const TRACK_SEGMENTS = 46
+  const trackSegments: TrackSegment[] = Array.from({ length: TRACK_SEGMENTS }, (_, i) => {
+    const t0 = (tailEndTheta * i) / TRACK_SEGMENTS
+    const t1 = (tailEndTheta * (i + 1)) / TRACK_SEGMENTS
+    const midTheta = (t0 + t1) / 2
+    const midY = HALF + (radius0 + scaledB * midTheta) * Math.sin(startAngleRad + midTheta)
+    return {
+      d: sampleTrack(t0, t1, HALF, radius0, scaledB, startAngleRad, viewMap),
+      depth: depthOf(perspAt(midY)),
+    }
+  })
 
   // ---- 7. 末端呼吸光点 + "未完待续" 文字（沿半径方向略微向外一点） ----
   const tailAngle = startAngleRad + tailTheta
-  const tailX = HALF + HALF * Math.cos(tailAngle)
-  const tailY = HALF + HALF * Math.sin(tailAngle)
+  const [mappedTailX, mappedTailY] = viewMap(
+    HALF + HALF * Math.cos(tailAngle),
+    HALF + HALF * Math.sin(tailAngle),
+  )
   const textRadius = HALF + 34
-  const [mappedTailX, mappedTailY] = mapPoint(tailX, tailY)
-  const [mappedTextX, mappedTextY] = mapPoint(
+  const [mappedTextX, mappedTextY] = viewMap(
     HALF + textRadius * Math.cos(tailAngle),
     HALF + textRadius * Math.sin(tailAngle),
   )
@@ -515,6 +621,7 @@ export function computeSpiralLayout(
     nodes: mappedNodes,
     milestones: mappedMilestones,
     trackPath,
+    trackSegments,
     tail,
   }
 }

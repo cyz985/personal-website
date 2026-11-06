@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import type { Milestone, Project, TimeGroup } from '../config'
 import { groupColorOf } from '../config'
 import { CANVAS_SIZE, computeSpiralLayout } from '../lib/spiral'
@@ -82,6 +91,99 @@ export default function SpiralCanvas({
   /** 统一缩放系数：节点半径 / 字号 / 线宽都按它换算，保证不被椭圆拉伸变形 */
   const u = layout.unitScale
 
+  /** 星球按透视深度排序：远处的先画（在下层），近处的后画（压在上面） */
+  const orderedNodes = useMemo(
+    () => [...layout.nodes].sort((a, b) => a.depth - b.depth),
+    [layout.nodes],
+  )
+
+  // ---------------------------------------------------------------- 3D 视角
+  const sceneRef = useRef<HTMLDivElement>(null)
+  /** 视角状态放在 ref 里，拖拽时只改一个 DOM transform，不触发 React 重渲染 */
+  const viewRef = useRef({ rx: 0, ry: 0, zoom: 1 })
+  const swayRef = useRef(0)
+  const dragRef = useRef({ active: false, x: 0, y: 0 })
+  const suppressClickRef = useRef(false)
+  const [autoRotate, setAutoRotate] = useState(true)
+
+  const applyView = useCallback(() => {
+    const el = sceneRef.current
+    if (!el) return
+    const v = viewRef.current
+    el.style.transform =
+      `rotateX(${v.rx.toFixed(2)}deg) rotateY(${(v.ry + swayRef.current).toFixed(2)}deg) scale(${v.zoom.toFixed(3)})`
+  }, [])
+
+  // 极缓慢的整体自转：60 秒一个来回、幅度 ±4°，只做轻微空间感，不影响阅读
+  useEffect(() => {
+    if (!autoRotate) {
+      swayRef.current = 0
+      applyView()
+      return
+    }
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (reduce) {
+      swayRef.current = 0
+      applyView()
+      return
+    }
+    let raf = 0
+    const t0 = performance.now()
+    let last = Number.NaN
+    const tick = (now: number) => {
+      const next = Math.sin(((now - t0) / 60000) * Math.PI * 2) * 4
+      // 变化极小时跳过写入，避免每帧都触发合成层重绘
+      if (!(Math.abs(next - last) < 0.03)) {
+        last = next
+        swayRef.current = next
+        applyView()
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [autoRotate, applyView])
+
+  // 滚轮控制镜头远近（限制幅度，避免最外侧星球被裁切）
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const v = viewRef.current
+      v.zoom = Math.max(0.82, Math.min(1.12, v.zoom * (event.deltaY > 0 ? 0.94 : 1.06)))
+      applyView()
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [applyView])
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if ((event.target as Element).closest('[data-no-drag]')) return
+    dragRef.current = { active: true, x: event.clientX, y: event.clientY }
+    suppressClickRef.current = false
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    if (!drag.active) return
+    const dx = event.clientX - drag.x
+    const dy = event.clientY - drag.y
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) suppressClickRef.current = true
+    drag.x = event.clientX
+    drag.y = event.clientY
+    const v = viewRef.current
+    // 左右拖拽绕竖轴转、上下拖拽绕横轴俯仰，角度都做了收敛限制
+    v.ry = Math.max(-38, Math.min(38, v.ry + dx * 0.16))
+    v.rx = Math.max(-26, Math.min(26, v.rx - dy * 0.14))
+    applyView()
+  }
+
+  const endDrag = () => {
+    dragRef.current.active = false
+  }
+
   /** 右键删除确认浮层的状态 */
   const [pendingDelete, setPendingDelete] = useState<{
     project: Project
@@ -120,14 +222,23 @@ export default function SpiralCanvas({
   const DELETE_CANCEL_BTN = '取消'
 
   return (
-    <div ref={containerRef} className="spiral-canvas relative h-full w-full">
-      <svg
-        viewBox={`0 0 ${layout.width} ${layout.height}`}
-        preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full overflow-visible"
-        role="list"
-        aria-label="项目成长时间轴"
-      >
+    <div
+      ref={containerRef}
+      className="spiral-canvas spiral-stage relative h-full w-full"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={endDrag}
+      onPointerCancel={endDrag}
+    >
+      {/* 3D 场景层：透视拖拽 / 缩放只改这一层的 transform */}
+      <div ref={sceneRef} className="spiral-scene absolute inset-0">
+        <svg
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          preserveAspectRatio="none"
+          className="absolute inset-0 h-full w-full overflow-visible"
+          role="list"
+          aria-label="项目成长时间轴"
+        >
         <defs>
           {/* 轨道由内到外：暖橙 → 淡紫 → 极光浅蓝 */}
           <radialGradient
@@ -175,18 +286,26 @@ export default function SpiralCanvas({
           strokeOpacity={0.16}
           strokeLinecap="round"
         />
-        <path
-          d={layout.trackPath}
-          fill="none"
-          stroke="url(#track-gradient)"
-          strokeWidth={2.2 * u}
-          strokeOpacity={0.92}
-          strokeLinecap="round"
-        />
+        {/* 主线：按 3D 深度切片渲染，远处更细更淡、近处更实 */}
+        {layout.trackSegments.map((segment, index) => (
+          <path
+            key={`track-${index}`}
+            d={segment.d}
+            fill="none"
+            stroke="url(#track-gradient)"
+            strokeWidth={2.2 * u * (0.5 + 0.5 * segment.depth)}
+            strokeOpacity={0.3 + 0.62 * segment.depth}
+            strokeLinecap="round"
+          />
+        ))}
 
         {/* 里程碑：轨道上的小圆点 + 一根很淡的引导线 + 轨道外侧的时间文字 */}
         {layout.milestones.map((milestone) => (
-          <g key={milestone.id} className="milestone">
+          <g
+            key={milestone.id}
+            className="milestone"
+            opacity={0.55 + 0.45 * milestone.depth}
+          >
             <line
               x1={milestone.x}
               y1={milestone.y}
@@ -243,8 +362,8 @@ export default function SpiralCanvas({
           </g>
         ))}
 
-        {/* 项目节点：星球式卡片 */}
-        {layout.nodes.map((node) => {
+        {/* 项目节点：星球式卡片（按透视深度排序，远处的在下层） */}
+        {orderedNodes.map((node) => {
           // 如果星球绑定了分组，用分组色覆盖圈层色（让同组星球光晕色调统一）
           const boundGroup = groups.find((g) => g.id === node.project.groupId)
           const override = groupColorOf(boundGroup, groups)
@@ -273,12 +392,21 @@ export default function SpiralCanvas({
                 {
                   '--node-accent': accent,
                   '--node-glow': glow,
+                  // 背面的星球轻微淡出，但不影响文字识别
+                  opacity: 0.68 + 0.32 * node.depth,
                 } as CSSProperties
               }
               role="link"
               tabIndex={0}
               aria-label={`打开项目：${node.project.name}（${node.project.time}）`}
-              onClick={() => onOpenProject(node.project)}
+              onClick={() => {
+                // 拖拽视角时误触的点击不跳转
+                if (suppressClickRef.current) {
+                  suppressClickRef.current = false
+                  return
+                }
+                onOpenProject(node.project)
+              }}
               onContextMenu={(event) => handleNodeContextMenu(event, node.project)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
@@ -430,10 +558,24 @@ export default function SpiralCanvas({
           </text>
         </g>
       </svg>
+      </div>
+
+      {/* 3D 视角提示 / 自转开关（不干扰原有交互） */}
+      <button
+        type="button"
+        data-no-drag
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={() => setAutoRotate((value) => !value)}
+        className="spiral-3d-toggle absolute left-4 top-4 z-20 rounded-full border border-white/10 bg-ink/35 px-3 py-1 text-[11px] text-muted/80 backdrop-blur-sm transition-colors hover:border-aurora/40 hover:text-paper"
+        title="拖拽旋转视角 · 滚轮缩放"
+      >
+        3D 视角 · {autoRotate ? '缓慢自转中' : '已停用'}
+      </button>
 
       {/* 右键删除确认浮层 */}
       {pendingDelete && (
         <div
+          data-no-drag
           className="absolute z-30 min-w-[240px] max-w-[300px] rounded-xl border border-ember/40 bg-ink/95 px-4 py-3 text-paper shadow-2xl backdrop-blur-md"
           style={{
             left: Math.min(pendingDelete.x, Math.max(layout.width - 160, 0)), // 避免贴右边缘
