@@ -317,20 +317,14 @@ export function computeSpiralLayout(
     return { x: HALF + rx * persp, y: HALF + ry * persp, persp }
   }
 
-  // 透视后上下不对称，整体平移回画布中心，保持构图中正
-  let rawMinY = Infinity
-  let rawMaxY = -Infinity
-  flat.forEach((item) => {
-    const p = projectFlat(item.x, item.y)
-    const r = item.nodeRadius * p.persp
-    rawMinY = Math.min(rawMinY, p.y - r)
-    rawMaxY = Math.max(rawMaxY, p.y + r)
-  })
-  const shiftY = Number.isFinite(rawMinY) ? HALF - (rawMinY + rawMaxY) / 2 : 0
-
+  // 中心圆（CenterCore）由 CSS 固定在画布 50%/50%，因此螺旋的几何极点必须
+  // 始终投影在 (HALF, HALF)：projectFlat 对极点（dx=dy=0）天然保持不变，
+  // 这里不再做任何整体平移（曾经按节点包围盒居中，反而把极点推离画布中心，
+  // 导致中心圆相对螺旋偏左上）。透视带来的"近大远小"上下不对称是 3D 纵深的
+  // 正常表现，由下方 extX / extY 自适应拟合兜底，最外侧节点不会被裁切。
   const project = (x: number, y: number) => {
     const p = projectFlat(x, y)
-    return { x: p.x, y: p.y + shiftY, persp: p.persp }
+    return { x: p.x, y: p.y, persp: p.persp }
   }
 
   // 深度归一化：0 = 最远，1 = 最近
@@ -511,10 +505,10 @@ export function computeSpiralLayout(
             const dy = Math.max(node.y - maxY, minY - node.y, 0)
             clearance = Math.min(clearance, Math.hypot(dx, dy) - node.nodeRadius)
           }
-          // 也不能压住中心图案与提示文字
+          // 也不能压住中心图案与提示文字（中心圆已放大为横向椭圆，净空同步加大）
           const centerDx = Math.max(HALF - maxX, minX - HALF, 0)
-          const centerDy = Math.max(HALF - maxY, minY - (HALF + 96), 0)
-          clearance = Math.min(clearance, Math.hypot(centerDx, centerDy) - 54)
+          const centerDy = Math.max(HALF - maxY, minY - (HALF + 118), 0)
+          clearance = Math.min(clearance, Math.hypot(centerDx, centerDy) - 72)
 
           // 与已放置的里程碑文字不互相压住
           let freeOfLabels = true

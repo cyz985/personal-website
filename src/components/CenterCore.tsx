@@ -1,7 +1,7 @@
 /**
  * 中心圆形面板：干净清晰的深蓝底 + 高亮锐利的名字
- * - 圆内部无任何光晕 / 雾感 / 扩散光斑
- * - 外圈仅保留渐变亮边 + 极细的贴边蓝紫辉光（静态滤镜）
+ * - 轻微横向椭圆（122×110），与外围椭圆轨道的横宽轮廓呼应
+ * - 圆内部无任何模糊 / 雾感；外圈是渐变亮边 + 柔和的径向渐变光晕（无滤镜模糊）
  * - 名字为全中心最亮焦点：浅银白色 + 极薄柔和高光，边缘锐利不模糊
  * 点击会在新标签页打开个人介绍独立页面（#/about）
  * hover 时轻微上浮 + 暖橙柔光（仅 hover 出现）
@@ -31,9 +31,14 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={ariaLabel}
-        className="core-link flex h-[104px] w-[104px] items-center justify-center rounded-full"
+        className="core-link flex h-[110px] w-[122px] items-center justify-center rounded-full"
       >
-        <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible" aria-hidden="true">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="h-full w-full overflow-visible"
+          aria-hidden="true"
+        >
           <defs>
             <linearGradient id="core-ring" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#FFB370" />
@@ -46,7 +51,16 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               <stop offset="55%" stopColor="#26395F" />
               <stop offset="100%" stopColor="#1B2A4A" />
             </radialGradient>
+            {/* 外围柔和光晕：径向渐变自然淡出（非模糊滤镜），让中心成为视觉核心 */}
+            <radialGradient id="core-aura" cx="50%" cy="50%" r="50%">
+              <stop offset="60%" stopColor="#C7A6FF" stopOpacity="0.16" />
+              <stop offset="82%" stopColor="#7FD8FF" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="#7FD8FF" stopOpacity="0" />
+            </radialGradient>
           </defs>
+
+          {/* 柔和外晕：从亮边外侧缓缓淡出，无模糊滤镜，文字与边缘始终锐利 */}
+          <circle cx="50" cy="50" r="74" fill="url(#core-aura)" pointerEvents="none" />
 
           {/* hover 时才亮起的暖橙光晕（默认完全透明，平时不可见） */}
           <circle className="core-halo" cx="50" cy="50" r="44" />
