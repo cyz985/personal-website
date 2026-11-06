@@ -5,7 +5,7 @@
  * - 仅保留一档很轻的贴边亮线，去掉大面积外层柔光
  * - 3D 感全部由 SVG 几何绘制（正交视角，无 CSS 3D 变换），不产生位图重采样
  * - "林知远"文字放在独立等比正交 SVG 层，不受盘面椭圆拉伸，永远正对镜头、清晰锐利
- * 点击弹出个人介绍弹窗，hover 轻微上浮 + 暖橙柔光
+ * 点击跳转到个人介绍页面，hover 轻微上浮 + 暖橙柔光
  */
 
 import { useRef } from 'react'
@@ -17,7 +17,7 @@ interface CenterCoreProps {
   hint: string
   /** 中心展示的名字 */
   name: string
-  /** 左键单击圆盘：弹出个人介绍弹窗 */
+  /** 左键单击圆盘：跳转到个人介绍独立页面 */
   onOpen: () => void
 }
 
@@ -28,7 +28,7 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
   const available = INNER_R * 2 * 0.82 // 粗衬线字厚，留足边距 + letterSpacing 空间
   const fontSize = Math.min(available / (name.length * CHAR_WIDTH), available * 0.54)
   /** 按下位置：拖拽超过阈值时不视为点击 */
-  const pressRef = useRef({ x: 0, y: 0 })
+  const pressRef = useRef<{ x: number; y: number } | null>(null)
 
   return (
     <div className="relative h-[142px] w-[162px]">
@@ -41,9 +41,10 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
         onClick={(event) => {
           // 仅左键单击，且按下后没有明显拖动才触发
           if (event.button !== 0) return
+          const press = pressRef.current
           if (
-            Math.abs(event.clientX - pressRef.current.x) > 3 ||
-            Math.abs(event.clientY - pressRef.current.y) > 3
+            press &&
+            (Math.abs(event.clientX - press.x) > 3 || Math.abs(event.clientY - press.y) > 3)
           ) {
             return
           }

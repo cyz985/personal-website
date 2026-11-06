@@ -7,7 +7,6 @@ import SkillsPanel from './components/SkillsPanel'
 import InterestsPanel from './components/InterestsPanel'
 import ContactPanel from './components/ContactPanel'
 import EditPanel from './components/EditPanel'
-import IntroModal from './components/IntroModal'
 import AboutPage from './components/AboutPage'
 import StarField from './components/StarField'
 
@@ -96,10 +95,10 @@ export default function App() {
   }, [])
 
   const closePanel = useCallback(() => setActivePanel(null), [])
-  /** 个人介绍弹窗 */
-  const [introOpen, setIntroOpen] = useState(false)
-  const openIntro = useCallback(() => setIntroOpen(true), [])
-  const closeIntro = useCallback(() => setIntroOpen(false), [])
+  /** 点击中心圆盘：直接跳到个人介绍独立页面（同一标签页，hash 路由） */
+  const openIntro = useCallback(() => {
+    window.location.hash = '#/about'
+  }, [])
 
   /** 未配置链接时的一次性轻提示 */
   const [toast, setToast] = useState<string | null>(null)
@@ -335,9 +334,6 @@ export default function App() {
           onReset={resetEditable}
         />
       </SidePanel>
-
-      {/* 个人介绍弹窗：点击中心圆盘打开 */}
-      <IntroModal open={introOpen} personal={editable.personal} onClose={closeIntro} />
 
       {/* 轻提示：星球未配置链接时出现 */}
       {toast ? (

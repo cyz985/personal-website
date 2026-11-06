@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { ContactInfo, PersonalInfo, SiteLabels } from '../config'
+import StarField from './StarField'
 
 interface AboutPageProps {
   personal: PersonalInfo
@@ -28,8 +29,19 @@ export default function AboutPage({ personal, contact, labels }: AboutPageProps)
   const bio = personal.introduction.filter(Boolean).join(' ')
 
   return (
-    <div className="page-aurora min-h-[100svh] w-full">
-      <div className="mx-auto w-full max-w-[680px] px-6 py-16 sm:px-8 sm:py-24">
+    <div className="page-aurora relative min-h-[100svh] w-full overflow-hidden">
+      {/* 与主页一致的星空背景 */}
+      <StarField />
+      <div className="relative z-10 mx-auto w-full max-w-[680px] px-6 py-16 sm:px-8 sm:py-24">
+        {/* 顶部返回按钮 */}
+        <a
+          href="#/"
+          className="mb-10 inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-xs tracking-wide text-muted transition-colors duration-200 hover:border-ember/50 hover:text-ember"
+        >
+          <span aria-hidden="true">←</span>
+          {labels.backToPortfolio}
+        </a>
+
         {/* 顶部标识 */}
         <p className="flex items-center gap-3 text-[11px] tracking-[0.28em] text-muted/80">
           <span className="h-px w-8 bg-ember/60" />
@@ -74,7 +86,7 @@ export default function AboutPage({ personal, contact, labels }: AboutPageProps)
         {/* 底部：返回与版权 */}
         <div className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.07] pt-8">
           <a
-            href="/"
+            href="#/"
             className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-xs tracking-wide text-muted transition-colors duration-200 hover:border-ember/50 hover:text-ember"
           >
             <span aria-hidden="true">←</span>
