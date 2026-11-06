@@ -38,8 +38,8 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
       >
         <defs>
           <radialGradient id="core-ground" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#0B1428" stopOpacity="0.24" />
-            <stop offset="55%" stopColor="#0B1428" stopOpacity="0.09" />
+            <stop offset="0%" stopColor="#0B1428" stopOpacity="0.13" />
+            <stop offset="55%" stopColor="#0B1428" stopOpacity="0.05" />
             <stop offset="100%" stopColor="#0B1428" stopOpacity="0" />
           </radialGradient>
         </defs>
@@ -67,16 +67,16 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
                 <stop offset="55%" stopColor="#C7A6FF" />
                 <stop offset="100%" stopColor="#7FD8FF" />
               </linearGradient>
-              {/* 盘面底色：清透的深蓝径向渐变，整体提亮一档、边缘不再压暗发灰 */}
+              {/* 盘面底色：水晶质感的半透明深蓝，整体更透、能隐约透出星空 */}
               <radialGradient id="core-panel" cx="50%" cy="42%" r="64%">
-                <stop offset="0%" stopColor="#3D5884" />
-                <stop offset="55%" stopColor="#2C4168" />
-                <stop offset="100%" stopColor="#203154" />
+                <stop offset="0%" stopColor="#41608E" />
+                <stop offset="55%" stopColor="#2F466F" />
+                <stop offset="100%" stopColor="#243759" />
               </radialGradient>
-              {/* 贴边柔光：收紧在外缘附近、快速淡出，不做大面积雾化 */}
+              {/* 贴边柔光：极轻的一圈，快速淡出，无雾化扩散 */}
               <radialGradient id="core-aura" cx="50%" cy="50%" r="50%">
-                <stop offset="64%" stopColor="#C7A6FF" stopOpacity="0.18" />
-                <stop offset="84%" stopColor="#7FD8FF" stopOpacity="0.07" />
+                <stop offset="66%" stopColor="#C7A6FF" stopOpacity="0.12" />
+                <stop offset="85%" stopColor="#7FD8FF" stopOpacity="0.05" />
                 <stop offset="100%" stopColor="#7FD8FF" stopOpacity="0" />
               </radialGradient>
               {/* 表面柔光着色：左上暖橙光源（与星球受光方向一致） */}
@@ -94,11 +94,11 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
                 <stop offset="0%" stopColor="#7FD8FF" stopOpacity="0.12" />
                 <stop offset="100%" stopColor="#7FD8FF" stopOpacity="0" />
               </radialGradient>
-              {/* 下缘内阴影：减淡到只剩一线，保留厚度感但不发闷 */}
+              {/* 下缘内阴影：只剩极淡一线，厚度感若有若无 */}
               <linearGradient id="core-inner-shade" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#081020" stopOpacity="0" />
-                <stop offset="62%" stopColor="#081020" stopOpacity="0" />
-                <stop offset="100%" stopColor="#081020" stopOpacity="0.32" />
+                <stop offset="66%" stopColor="#081020" stopOpacity="0" />
+                <stop offset="100%" stopColor="#081020" stopOpacity="0.15" />
               </linearGradient>
               {/* 上缘环境光：顶部一线淡紫高光 */}
               <linearGradient id="core-top-light" x1="0" y1="0" x2="0" y2="1">
@@ -110,10 +110,10 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
             {/* 贴边柔光：从亮边外侧快速淡出，清透不雾 */}
             <circle cx="50" cy="50" r="64" fill="url(#core-aura)" pointerEvents="none" />
 
-            {/* 盘体侧壁（厚度）：比盘面低 2 单位，只在下缘露出极窄一线 */}
-            <ellipse cx="50" cy="52" rx="46" ry="46" fill="#12203C" />
+            {/* 盘体侧壁（厚度）：极薄一线，颜色也随水晶盘变浅 */}
+            <ellipse cx="50" cy="51.8" rx="46" ry="46" fill="#16294A" fillOpacity="0.85" />
 
-            {/* 盘面：清透深蓝底 + 渐变亮边（贴边辉光为静态滤镜） */}
+            {/* 盘面：半透明水晶底 + 渐变亮边（贴边辉光为静态滤镜） */}
             <ellipse
               className="core-edge-glow"
               cx="50"
@@ -121,6 +121,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               rx="46"
               ry="46"
               fill="url(#core-panel)"
+              fillOpacity="0.86"
               stroke="url(#core-ring)"
               strokeOpacity="0.85"
               strokeWidth="2"
@@ -134,7 +135,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
             {/* hover 时才亮起的暖橙光晕（默认完全透明，平时不可见） */}
             <circle className="core-halo" cx="50" cy="50" r="44" />
 
-            {/* 下缘内阴影 + 上缘一线环境光：轻薄的空间层次 */}
+            {/* 下缘内阴影 + 上缘一线环境光：若有若无的空间层次 */}
             <ellipse
               cx="50"
               cy="50"
@@ -142,7 +143,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               ry="44.8"
               fill="none"
               stroke="url(#core-inner-shade)"
-              strokeWidth="2.6"
+              strokeWidth="2"
             />
             <ellipse
               cx="50"
@@ -151,7 +152,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               ry="45.5"
               fill="none"
               stroke="url(#core-top-light)"
-              strokeWidth="1.1"
+              strokeWidth="1"
             />
 
             {/* 内圈细纹 */}
