@@ -15,6 +15,8 @@ interface ProjectsSectionProps {
   onOpenProject: (project: Project) => void
   /** 右键星球节点：弹出删除确认 */
   onRequestDelete?: (project: Project) => void
+  /** 左键单击中心圆盘：打开个人介绍弹窗 */
+  onOpenIntro: () => void
   /** 时间轴末端文案 */
   timelineNote: string
   /** 中心图案的无障碍说明 */
@@ -36,6 +38,7 @@ export default function ProjectsSection({
   centerName,
   onOpenProject,
   onRequestDelete,
+  onOpenIntro,
   timelineNote,
   centerAria,
   centerHint,
@@ -57,13 +60,23 @@ export default function ProjectsSection({
           className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2"
           style={{ top: `${50 - CENTER_LIFT_RATIO * 100}%` }}
         >
-          <CenterCore ariaLabel={centerAria} hint={centerHint} name={centerName} />
+          <CenterCore
+            ariaLabel={centerAria}
+            hint={centerHint}
+            name={centerName}
+            onOpen={onOpenIntro}
+          />
         </div>
       </div>
 
       {/* 窄屏：中心图案 + 3 列网格 */}
       <div className="flex w-full flex-col items-center gap-7 sm:hidden">
-        <CenterCore ariaLabel={centerAria} hint={centerHint} name={centerName} />
+        <CenterCore
+          ariaLabel={centerAria}
+          hint={centerHint}
+          name={centerName}
+          onOpen={onOpenIntro}
+        />
 
         <div className="grid w-full max-w-[330px] grid-cols-3 gap-2.5">
           {projects.map((project) => (

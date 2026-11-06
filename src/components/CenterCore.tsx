@@ -5,10 +5,11 @@
  * - 仅保留一档很轻的贴边亮线，去掉大面积外层柔光
  * - 3D 感全部由 SVG 几何绘制（正交视角，无 CSS 3D 变换），不产生位图重采样
  * - "林知远"文字放在独立等比正交 SVG 层，不受盘面椭圆拉伸，永远正对镜头、清晰锐利
- * 点击在新标签页打开个人介绍（#/about），hover 轻微上浮 + 暖橙柔光
+ * 点击弹出个人介绍弹窗，hover 轻微上浮 + 暖橙柔光
  */
 
-/** 中心圆盘组件属性 */
+import { useRef } from 'react'
+
 interface CenterCoreProps {
   /** 无障碍标签 */
   ariaLabel: string
@@ -16,25 +17,42 @@ interface CenterCoreProps {
   hint: string
   /** 中心展示的名字 */
   name: string
+  /** 左键单击圆盘：弹出个人介绍弹窗 */
+  onOpen: () => void
 }
 
-export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
+export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCoreProps) {
   // 自适应字号：粗笔重墨衬线字视觉占位更大，留更多边距防溢出
   const CHAR_WIDTH = 1.06 // 中文字每字约占字号的 1.06 倍宽
   const INNER_R = 34
   const available = INNER_R * 2 * 0.82 // 粗衬线字厚，留足边距 + letterSpacing 空间
   const fontSize = Math.min(available / (name.length * CHAR_WIDTH), available * 0.54)
+  /** 按下位置：拖拽超过阈值时不视为点击 */
+  const pressRef = useRef({ x: 0, y: 0 })
 
   return (
     <div className="relative h-[142px] w-[162px]">
-      <a
-        href="/#/about"
-        target="_blank"
-        rel="noopener noreferrer"
+      {/* 只有圆盘（椭圆）范围内可点击，圆盘外不响应 */}
+      <button
+        type="button"
+        onPointerDown={(event) => {
+          pressRef.current = { x: event.clientX, y: event.clientY }
+        }}
+        onClick={(event) => {
+          // 仅左键单击，且按下后没有明显拖动才触发
+          if (event.button !== 0) return
+          if (
+            Math.abs(event.clientX - pressRef.current.x) > 3 ||
+            Math.abs(event.clientY - pressRef.current.y) > 3
+          ) {
+            return
+          }
+          onOpen()
+        }}
         aria-label={ariaLabel}
-        className="core-link absolute inset-0 block rounded-full"
+        className="core-link absolute inset-0 block rounded-full border-0 bg-transparent p-0"
       >
-        <div className="core-float relative h-full w-full">
+        <span className="core-float relative block h-full w-full">
           {/* 盘面层：椭圆透视完全靠几何绘制，不做 CSS 3D 变换 */}
           <svg
             viewBox="0 0 100 100"
@@ -179,8 +197,8 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               {name}
             </text>
           </svg>
-        </div>
-      </a>
+        </span>
+      </button>
 
       {/* 中心下方小字提示：比名字弱一档，保持柔和但清楚 */}
       <span className="core-hint hint-breathe pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap text-[11px] tracking-[0.16em] text-muted/75">

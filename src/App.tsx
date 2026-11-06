@@ -7,6 +7,7 @@ import SkillsPanel from './components/SkillsPanel'
 import InterestsPanel from './components/InterestsPanel'
 import ContactPanel from './components/ContactPanel'
 import EditPanel from './components/EditPanel'
+import IntroModal from './components/IntroModal'
 import AboutPage from './components/AboutPage'
 import StarField from './components/StarField'
 
@@ -95,7 +96,30 @@ export default function App() {
   }, [])
 
   const closePanel = useCallback(() => setActivePanel(null), [])
-  const openProject = useCallback((project: Project) => openInNewTab(project.url), [])
+  /** 个人介绍弹窗 */
+  const [introOpen, setIntroOpen] = useState(false)
+  const openIntro = useCallback(() => setIntroOpen(true), [])
+  const closeIntro = useCallback(() => setIntroOpen(false), [])
+
+  /** 未配置链接时的一次性轻提示 */
+  const [toast, setToast] = useState<string | null>(null)
+  const showToast = useCallback((message: string) => {
+    setToast(message)
+    window.setTimeout(() => setToast((current) => (current === message ? null : current)), 1800)
+  }, [])
+
+  const openProject = useCallback(
+    (project: Project) => {
+      const url = project.url?.trim()
+      if (!url) {
+        // 没有填写链接：不跳转，只给一句轻提示
+        showToast('暂未配置链接')
+        return
+      }
+      openInNewTab(url)
+    },
+    [showToast],
+  )
 
   /** 保存编辑内容（来自 EditPanel）：合并 personal / projects / groups，保留 skills + contact 不动 */
   const saveEditable = useCallback(
@@ -217,6 +241,7 @@ export default function App() {
         centerName={editable.personal.name}
         onOpenProject={openProject}
         onRequestDelete={deleteProject}
+        onOpenIntro={openIntro}
         timelineNote={labels.timelineNote}
         centerAria={labels.centerAria}
         centerHint={labels.centerHint}
@@ -310,6 +335,16 @@ export default function App() {
           onReset={resetEditable}
         />
       </SidePanel>
+
+      {/* 个人介绍弹窗：点击中心圆盘打开 */}
+      <IntroModal open={introOpen} personal={editable.personal} onClose={closeIntro} />
+
+      {/* 轻提示：星球未配置链接时出现 */}
+      {toast ? (
+        <div className="pointer-events-none fixed bottom-16 left-1/2 z-[60] -translate-x-1/2 rounded-full border border-white/10 bg-ink/80 px-4 py-2 text-xs tracking-wide text-paper/85 backdrop-blur-sm">
+          {toast}
+        </div>
+      ) : null}
     </div>
   )
 }

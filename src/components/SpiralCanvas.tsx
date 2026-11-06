@@ -94,6 +94,8 @@ export default function SpiralCanvas({
   const commitView = () => setView({ ...viewRef.current })
 
   const dragRef = useRef({ active: false, x: 0, y: 0 })
+  /** 本次按下是否落在星球上（用于区分"点击跳转"与"拖拽"） */
+  const pressRef = useRef({ x: 0, y: 0, onNode: false })
   const suppressClickRef = useRef(false)
   const frameRef = useRef(0)
   const [autoRotate, setAutoRotate] = useState(true)
@@ -158,13 +160,38 @@ export default function SpiralCanvas({
   }, [])
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if ((event.target as Element).closest('[data-no-drag]')) return
-    dragRef.current = { active: true, x: event.clientX, y: event.clientY }
+    // 仅左键；带 data-no-drag 的控件（如 3D 开关）不参与拖拽
+    if (event.button !== 0) return
+    const target = event.target as Element
+    if (target.closest('[data-no-drag]')) return
+
+    // 记录按下位置：即使按在星球上，移动超过阈值也算拖拽，抬手不触发跳转
+    pressRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      onNode: !!target.closest('.spiral-node'),
+    }
     suppressClickRef.current = false
+
+    // 在星球节点上按下不启动旋转：只有空白星空区域拖动才旋转 3D 轨道
+    if (pressRef.current.onNode) return
+
+    dragRef.current = { active: true, x: event.clientX, y: event.clientY }
     event.currentTarget.setPointerCapture(event.pointerId)
   }
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    // 从星球上按下：只判断是否发生了拖动，用于抑制误触跳转，不旋转视角
+    if (pressRef.current.onNode && !dragRef.current.active) {
+      if (
+        Math.abs(event.clientX - pressRef.current.x) > 3 ||
+        Math.abs(event.clientY - pressRef.current.y) > 3
+      ) {
+        suppressClickRef.current = true
+      }
+      return
+    }
+
     const drag = dragRef.current
     if (!drag.active) return
     const dx = event.clientX - drag.x
@@ -408,7 +435,9 @@ export default function SpiralCanvas({
               role="link"
               tabIndex={0}
               aria-label={`打开项目：${node.project.name}（${node.project.time}）`}
-              onClick={() => {
+              onClick={(event) => {
+                // 仅左键单击生效，右键 / 中键不触发跳转
+                if (event.button !== 0) return
                 // 拖拽视角时误触的点击不跳转
                 if (suppressClickRef.current) {
                   suppressClickRef.current = false
