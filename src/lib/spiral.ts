@@ -50,7 +50,21 @@ export interface SpiralOptions {
   perspective?: number
   /** 整体缩放（滚轮控制镜头远近），1 = 自适应铺满 */
   zoom?: number
+  /**
+   * 整体垂直平移（画布像素，负值 = 上移）。
+   * 只作用于最终的画布映射层：所有节点 / 轨道 / 里程碑 / 末端文字一起平移，
+   * 相对位置、大小、角度完全不变。中心圆通过 CENTER_LIFT_RATIO 同步上移。
+   */
+  offsetY?: number
 }
+
+/**
+ * 螺旋系统整体上移比例（相对画布高度，正值 = 向上）。
+ * 底部轨道与"未完待续"文字此前超出页面下缘（1080p 下约 65px），整体上移 10%
+ * 视口高度后，最底元素保留约 43px+ 安全边距，顶部留白仍然充足（146px+）。
+ * SpiralCanvas（几何映射）与 ProjectsSection（中心圆 CSS 定位）共用此常量，保证同步。
+ */
+export const CENTER_LIFT_RATIO = 0.1
 
 /** 默认参数：螺旋轨道向外舒展，节点沿螺旋自然铺开，不扎堆一侧 */
 export const defaultSpiralOptions: SpiralOptions = {
@@ -384,9 +398,12 @@ export function computeSpiralLayout(
   const sizeScale = Math.min(canvasW, canvasH) / CANVAS_SIZE
   const unitScale = Math.min(sizeScale, ky * 1.2)
 
+  // 整体垂直平移（负值 = 上移）：在映射层统一应用，所有元素相对关系不变
+  const offsetY = opts.offsetY ?? 0
+
   const mapPoint = (x: number, y: number): [number, number] => [
     canvasW / 2 + (x - HALF) * kx,
-    canvasH / 2 + (y - HALF) * ky,
+    canvasH / 2 + offsetY + (y - HALF) * ky,
   ]
 
   /** 平面坐标 → 透视 → 画布坐标（轨道 / 里程碑 / 末端共用同一套投影） */
@@ -627,7 +644,8 @@ export function computeSpiralLayout(
     width: canvasW,
     height: canvasH,
     centerX: canvasW / 2,
-    centerY: canvasH / 2,
+    // 中心圆（CSS 定位）与轨道渐变圆心都跟随整体上移
+    centerY: canvasH / 2 + offsetY,
     unitScale,
     nodes: mappedNodes,
     milestones: mappedMilestones,

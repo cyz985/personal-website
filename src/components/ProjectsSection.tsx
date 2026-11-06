@@ -1,6 +1,7 @@
 import type { Milestone, Project, TimeGroup } from '../config'
 import SpiralCanvas from './SpiralCanvas'
 import CenterCore from './CenterCore'
+import { CENTER_LIFT_RATIO } from '../lib/spiral'
 
 interface ProjectsSectionProps {
   projects: Project[]
@@ -51,7 +52,11 @@ export default function ProjectsSection({
           onRequestDelete={onRequestDelete}
           note={timelineNote}
         />
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+        {/* 中心圆与螺旋系统共用同一上移比例，始终位于轨道几何中心 */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{ top: `${50 - CENTER_LIFT_RATIO * 100}%` }}
+        >
           <CenterCore ariaLabel={centerAria} hint={centerHint} name={centerName} />
         </div>
       </div>

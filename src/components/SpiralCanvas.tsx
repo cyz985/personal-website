@@ -9,7 +9,7 @@ import {
 } from 'react'
 import type { Milestone, Project, TimeGroup } from '../config'
 import { groupColorOf } from '../config'
-import { CANVAS_SIZE, computeSpiralLayout, defaultSpiralOptions } from '../lib/spiral'
+import { CANVAS_SIZE, CENTER_LIFT_RATIO, computeSpiralLayout, defaultSpiralOptions } from '../lib/spiral'
 
 interface SpiralCanvasProps {
   projects: Project[]
@@ -107,6 +107,8 @@ export default function SpiralCanvas({
       {
         canvasWidth: width,
         canvasHeight: height,
+        // 整个螺旋系统（含中心圆）上移，底部轨道与文字不再被页面下缘裁切
+        offsetY: -CENTER_LIFT_RATIO * height,
         tiltDeg: BASE_TILT + view.pitch,
         yawDeg: view.yaw + view.sway,
         zoom: view.zoom,
