@@ -1,12 +1,10 @@
 /**
- * 中心 3D 圆盘：轻微椭圆透视 + 轻薄边缘 + 清透柔光
- * - 3D 感全部由 SVG 渐变"画"出来（正交视角，无任何 CSS 3D 变换），
- *   不产生位图重采样，盘面边缘与文字永远锐利
- * - 盘面随轨道视角呈轻微横向椭圆（140×124，比例 ≈ cos22°，与轨道俯仰呼应）
- * - 质感清透：底色整体提亮、减淡内阴影与落地光影，光晕收紧为贴边柔光，
- *   不做大面积雾化扩散
- * - "林知远"文字放在独立的等比正交 SVG 层，不受盘面椭圆拉伸，
- *   始终正对镜头、清晰不变形（父级没有 3D 旋转，文字天然正交渲染）
+ * 中心圆盘：清透水晶光环（干净透明渐变底 + 清晰彩色环）
+ * - 盘面只有极低透明度的蓝紫渐变，星空白底透出来，不做任何灰遮罩 / 雾面叠加
+ * - 圆环为暖橙 → 粉紫 → 淡紫 → 浅蓝的清晰渐变，细而亮，不做模糊厚边
+ * - 仅保留一档很轻的贴边亮线，去掉大面积外层柔光
+ * - 3D 感全部由 SVG 几何绘制（正交视角，无 CSS 3D 变换），不产生位图重采样
+ * - "林知远"文字放在独立等比正交 SVG 层，不受盘面椭圆拉伸，永远正对镜头、清晰锐利
  * 点击在新标签页打开个人介绍（#/about），hover 轻微上浮 + 暖橙柔光
  */
 
@@ -28,24 +26,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
   const fontSize = Math.min(available / (name.length * CHAR_WIDTH), available * 0.54)
 
   return (
-    <div className="relative h-[124px] w-[140px]">
-      {/* 静止的环境光影：在盘面下缘露出一条极淡暗带（不随浮动动画移动，衬托悬浮感） */}
-      <svg
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-        aria-hidden="true"
-      >
-        <defs>
-          <radialGradient id="core-ground" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#0B1428" stopOpacity="0.13" />
-            <stop offset="55%" stopColor="#0B1428" stopOpacity="0.05" />
-            <stop offset="100%" stopColor="#0B1428" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <ellipse cx="50" cy="65" rx="40" ry="34" fill="url(#core-ground)" />
-      </svg>
-
+    <div className="relative h-[136px] w-[154px]">
       <a
         href="/#/about"
         target="_blank"
@@ -54,7 +35,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
         className="core-link absolute inset-0 block rounded-full"
       >
         <div className="core-float relative h-full w-full">
-          {/* 盘面层：轻微椭圆透视完全靠几何绘制，不做 CSS 3D 变换 */}
+          {/* 盘面层：椭圆透视完全靠几何绘制，不做 CSS 3D 变换 */}
           <svg
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
@@ -62,96 +43,90 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
             aria-hidden="true"
           >
             <defs>
+              {/* 圆环渐变：暖橙 → 粉紫 → 淡紫 → 浅蓝，清晰不浑浊 */}
               <linearGradient id="core-ring" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#FFB370" />
-                <stop offset="55%" stopColor="#C7A6FF" />
+                <stop offset="36%" stopColor="#F2A6DC" />
+                <stop offset="66%" stopColor="#C7A6FF" />
                 <stop offset="100%" stopColor="#7FD8FF" />
               </linearGradient>
-              {/* 盘面底色：水晶质感的半透明深蓝，整体更透、能隐约透出星空 */}
-              <radialGradient id="core-panel" cx="50%" cy="42%" r="64%">
-                <stop offset="0%" stopColor="#41608E" />
-                <stop offset="55%" stopColor="#2F466F" />
-                <stop offset="100%" stopColor="#243759" />
+              {/* 圆环内层的浅色高光：让边缘更锐利立体（不是雾） */}
+              <linearGradient id="core-ring-inner" x1="100%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#FFD9B0" stopOpacity="0.85" />
+                <stop offset="45%" stopColor="#F7DCFF" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="#BEEBFF" stopOpacity="0.55" />
+              </linearGradient>
+              {/* 盘面底色：极低不透明度的干净蓝紫渐变，透出星空，不发灰不发闷 */}
+              <radialGradient id="core-panel" cx="50%" cy="38%" r="72%">
+                <stop offset="0%" stopColor="#7FA2D8" stopOpacity="0.3" />
+                <stop offset="48%" stopColor="#53719F" stopOpacity="0.19" />
+                <stop offset="100%" stopColor="#3A4E75" stopOpacity="0.09" />
               </radialGradient>
-              {/* 贴边柔光：极轻的一圈，快速淡出，无雾化扩散 */}
-              <radialGradient id="core-aura" cx="50%" cy="50%" r="50%">
-                <stop offset="66%" stopColor="#C7A6FF" stopOpacity="0.12" />
-                <stop offset="85%" stopColor="#7FD8FF" stopOpacity="0.05" />
-                <stop offset="100%" stopColor="#7FD8FF" stopOpacity="0" />
-              </radialGradient>
-              {/* 表面柔光着色：左上暖橙光源（与星球受光方向一致） */}
-              <radialGradient id="core-tint-warm" cx="34%" cy="28%" r="72%">
-                <stop offset="0%" stopColor="#FFB370" stopOpacity="0.18" />
+              {/* 表面轻微色温：左上暖橙、中下淡紫，都极淡 */}
+              <radialGradient id="core-tint-warm" cx="32%" cy="26%" r="70%">
+                <stop offset="0%" stopColor="#FFB370" stopOpacity="0.13" />
                 <stop offset="100%" stopColor="#FFB370" stopOpacity="0" />
               </radialGradient>
-              {/* 中下部的淡紫反光 */}
-              <radialGradient id="core-tint-violet" cx="50%" cy="82%" r="76%">
-                <stop offset="0%" stopColor="#C7A6FF" stopOpacity="0.13" />
+              <radialGradient id="core-tint-violet" cx="52%" cy="84%" r="72%">
+                <stop offset="0%" stopColor="#C7A6FF" stopOpacity="0.09" />
                 <stop offset="100%" stopColor="#C7A6FF" stopOpacity="0" />
               </radialGradient>
-              {/* 右下角的浅蓝余光 */}
-              <radialGradient id="core-tint-blue" cx="68%" cy="88%" r="70%">
-                <stop offset="0%" stopColor="#7FD8FF" stopOpacity="0.12" />
-                <stop offset="100%" stopColor="#7FD8FF" stopOpacity="0" />
-              </radialGradient>
-              {/* 下缘内阴影：只剩极淡一线，厚度感若有若无 */}
-              <linearGradient id="core-inner-shade" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#081020" stopOpacity="0" />
-                <stop offset="66%" stopColor="#081020" stopOpacity="0" />
-                <stop offset="100%" stopColor="#081020" stopOpacity="0.15" />
-              </linearGradient>
-              {/* 上缘环境光：顶部一线淡紫高光 */}
-              <linearGradient id="core-top-light" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#C7A6FF" stopOpacity="0.42" />
-                <stop offset="42%" stopColor="#C7A6FF" stopOpacity="0" />
-              </linearGradient>
             </defs>
 
-            {/* 贴边柔光：从亮边外侧快速淡出，清透不雾 */}
-            <circle cx="50" cy="50" r="64" fill="url(#core-aura)" pointerEvents="none" />
+            {/* 盘面：透明渐变底，无任何灰遮罩 */}
+            <ellipse cx="50" cy="50" rx="46" ry="46" fill="url(#core-panel)" />
 
-            {/* 盘体侧壁（厚度）：极薄一线，颜色也随水晶盘变浅 */}
-            <ellipse cx="50" cy="51.8" rx="46" ry="46" fill="#16294A" fillOpacity="0.85" />
+            {/* 极淡色温叠加，保持水晶的通透而不是死蓝 */}
+            <ellipse cx="50" cy="50" rx="46" ry="46" fill="url(#core-tint-warm)" />
+            <ellipse cx="50" cy="50" rx="46" ry="46" fill="url(#core-tint-violet)" />
 
-            {/* 盘面：半透明水晶底 + 渐变亮边（贴边辉光为静态滤镜） */}
+            {/* hover 时才亮起的暖橙光晕（默认完全透明，平时不可见） */}
+            <circle className="core-halo" cx="50" cy="50" r="44" />
+
+            {/* 盘体厚度：只在下缘露出一线彩色侧壁，薄且干净 */}
+            <ellipse
+              cx="50"
+              cy="51.6"
+              rx="46"
+              ry="46"
+              fill="none"
+              stroke="url(#core-ring)"
+              strokeOpacity="0.22"
+              strokeWidth="1.6"
+            />
+
+            {/* 主圆环：清晰彩色细环 + 静态贴边辉光 */}
             <ellipse
               className="core-edge-glow"
               cx="50"
               cy="50"
               rx="46"
               ry="46"
-              fill="url(#core-panel)"
-              fillOpacity="0.86"
+              fill="none"
               stroke="url(#core-ring)"
-              strokeOpacity="0.85"
-              strokeWidth="2"
+              strokeWidth="2.4"
             />
 
-            {/* 表面柔光着色：暖橙 → 淡紫 → 浅蓝，通透不浑浊 */}
-            <ellipse cx="50" cy="50" rx="46" ry="46" fill="url(#core-tint-warm)" />
-            <ellipse cx="50" cy="50" rx="46" ry="46" fill="url(#core-tint-violet)" />
-            <ellipse cx="50" cy="50" rx="46" ry="46" fill="url(#core-tint-blue)" />
-
-            {/* hover 时才亮起的暖橙光晕（默认完全透明，平时不可见） */}
-            <circle className="core-halo" cx="50" cy="50" r="44" />
-
-            {/* 下缘内阴影 + 上缘一线环境光：若有若无的空间层次 */}
+            {/* 环内侧一圈浅色高光线，只在上半部明显，增加环的清晰度 */}
             <ellipse
               cx="50"
               cy="50"
-              rx="44.8"
-              ry="44.8"
+              rx="44.4"
+              ry="44.4"
               fill="none"
-              stroke="url(#core-inner-shade)"
-              strokeWidth="2"
+              stroke="url(#core-ring-inner)"
+              strokeWidth="1"
             />
+
+            {/* 外圈极轻的亮线：替代大面积柔光光晕 */}
             <ellipse
               cx="50"
               cy="50"
-              rx="45.5"
-              ry="45.5"
+              rx="48.2"
+              ry="48.2"
               fill="none"
-              stroke="url(#core-top-light)"
+              stroke="url(#core-ring)"
+              strokeOpacity="0.16"
               strokeWidth="1"
             />
 
@@ -162,26 +137,27 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               r="34"
               fill="none"
               stroke="#C7A6FF"
-              strokeOpacity="0.28"
+              strokeOpacity="0.22"
               strokeWidth="1"
             />
 
-            {/* 一段暖橙轨道弧 + 一颗小行星（原有装饰，保留） */}
+            {/* 暖橙进度弧 + 端点小圆点（位置不变，提亮增强发光感但不雾化） */}
             <path
+              className="core-arc-glow"
               d="M 50 18 A 32 32 0 0 1 80.5 66"
               fill="none"
               stroke="#FFB370"
-              strokeOpacity="0.72"
-              strokeWidth="2.2"
+              strokeOpacity="0.95"
+              strokeWidth="2.4"
               strokeLinecap="round"
             />
-            <circle cx="80.5" cy="66" r="2.6" fill="#7FD8FF" fillOpacity="0.8" />
+            <circle cx="80.5" cy="66" r="2.8" fill="#BEEBFF" />
           </svg>
 
           {/* 文字层：等比正交渲染，不随盘面椭圆拉伸，永远正对镜头、清晰锐利 */}
           <svg
             viewBox="0 0 100 100"
-            className="absolute left-1/2 top-1/2 h-[132px] w-[132px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
+            className="absolute left-1/2 top-1/2 h-[146px] w-[146px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
             aria-hidden="true"
           >
             <text
@@ -193,7 +169,11 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               fontFamily="'Noto Serif SC', '思源宋体', 'SimSun', serif"
               fontWeight={900}
               letterSpacing={fontSize * 0.2}
-              fill="#F7F3EA"
+              fill="#FBF7EE"
+              stroke="#0B1428"
+              strokeOpacity="0.5"
+              strokeWidth="0.7"
+              paintOrder="stroke"
             >
               {name}
             </text>
