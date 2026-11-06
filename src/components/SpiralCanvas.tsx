@@ -1,5 +1,4 @@
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -10,7 +9,7 @@ import {
 } from 'react'
 import type { Milestone, Project, TimeGroup } from '../config'
 import { groupColorOf } from '../config'
-import { CANVAS_SIZE, computeSpiralLayout } from '../lib/spiral'
+import { CANVAS_SIZE, computeSpiralLayout, defaultSpiralOptions } from '../lib/spiral'
 
 interface SpiralCanvasProps {
   projects: Project[]
@@ -82,11 +81,39 @@ export default function SpiralCanvas({
     return () => observer.disconnect()
   }, [])
 
+  // ---------------------------------------------------------------- 3D 视角
+  /** 基础俯仰角：取自螺旋默认参数，上半圈远离镜头形成纵深 */
+  const BASE_TILT = defaultSpiralOptions.tiltDeg ?? 22
+
+  /**
+   * 视角状态：直接参与几何投影计算，不通过 CSS transform 缩放位图，
+   * 因此星球与文字在任何角度下都由浏览器按矢量重新绘制，永远清晰。
+   */
+  const viewRef = useRef({ yaw: 0, pitch: 0, zoom: 1, sway: 0 })
+  const [view, setView] = useState({ yaw: 0, pitch: 0, zoom: 1, sway: 0 })
+  const commitView = () => setView({ ...viewRef.current })
+
+  const dragRef = useRef({ active: false, x: 0, y: 0 })
+  const suppressClickRef = useRef(false)
+  const frameRef = useRef(0)
+  const [autoRotate, setAutoRotate] = useState(true)
+
   const layout = useMemo(() => {
     const width = canvasSize.width || CANVAS_SIZE
     const height = canvasSize.height || CANVAS_SIZE
-    return computeSpiralLayout(projects, milestones, { canvasWidth: width, canvasHeight: height }, groups)
-  }, [projects, milestones, groups, canvasSize.width, canvasSize.height])
+    return computeSpiralLayout(
+      projects,
+      milestones,
+      {
+        canvasWidth: width,
+        canvasHeight: height,
+        tiltDeg: BASE_TILT + view.pitch,
+        yawDeg: view.yaw + view.sway,
+        zoom: view.zoom,
+      },
+      groups,
+    )
+  }, [projects, milestones, groups, canvasSize.width, canvasSize.height, view])
 
   /** 统一缩放系数：节点半径 / 字号 / 线宽都按它换算，保证不被椭圆拉伸变形 */
   const u = layout.unitScale
@@ -97,66 +124,36 @@ export default function SpiralCanvas({
     [layout.nodes],
   )
 
-  // ---------------------------------------------------------------- 3D 视角
-  const sceneRef = useRef<HTMLDivElement>(null)
-  /** 视角状态放在 ref 里，拖拽时只改一个 DOM transform，不触发 React 重渲染 */
-  const viewRef = useRef({ rx: 0, ry: 0, zoom: 1 })
-  const swayRef = useRef(0)
-  const dragRef = useRef({ active: false, x: 0, y: 0 })
-  const suppressClickRef = useRef(false)
-  const [autoRotate, setAutoRotate] = useState(true)
-
-  const applyView = useCallback(() => {
-    const el = sceneRef.current
-    if (!el) return
-    const v = viewRef.current
-    el.style.transform =
-      `rotateX(${v.rx.toFixed(2)}deg) rotateY(${(v.ry + swayRef.current).toFixed(2)}deg) scale(${v.zoom.toFixed(3)})`
-  }, [])
-
-  // 极缓慢的整体自转：60 秒一个来回、幅度 ±4°，只做轻微空间感，不影响阅读
+  // 极缓慢的整体自转：60 秒一个来回、幅度 ±4°。
+  // 每 240ms 才重算一次几何，此时角度变化不到 0.04°，看不出跳动，但省下大量渲染开销。
   useEffect(() => {
-    if (!autoRotate) {
-      swayRef.current = 0
-      applyView()
-      return
-    }
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    if (reduce) {
-      swayRef.current = 0
-      applyView()
+    if (!autoRotate || reduce) {
+      viewRef.current.sway = 0
+      commitView()
       return
     }
-    let raf = 0
     const t0 = performance.now()
-    let last = Number.NaN
-    const tick = (now: number) => {
-      const next = Math.sin(((now - t0) / 60000) * Math.PI * 2) * 4
-      // 变化极小时跳过写入，避免每帧都触发合成层重绘
-      if (!(Math.abs(next - last) < 0.03)) {
-        last = next
-        swayRef.current = next
-        applyView()
-      }
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [autoRotate, applyView])
+    const id = window.setInterval(() => {
+      viewRef.current.sway = Math.sin(((performance.now() - t0) / 60000) * Math.PI * 2) * 4
+      commitView()
+    }, 240)
+    return () => window.clearInterval(id)
+  }, [autoRotate])
 
-  // 滚轮控制镜头远近（限制幅度，避免最外侧星球被裁切）
+  // 滚轮控制镜头远近：改变整体缩放比例（同样是几何计算，不放大位图）
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
     const onWheel = (event: WheelEvent) => {
       event.preventDefault()
-      const v = viewRef.current
-      v.zoom = Math.max(0.82, Math.min(1.12, v.zoom * (event.deltaY > 0 ? 0.94 : 1.06)))
-      applyView()
+      const next = viewRef.current.zoom * (event.deltaY > 0 ? 0.94 : 1.06)
+      viewRef.current.zoom = Math.max(0.82, Math.min(1.12, next))
+      commitView()
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [applyView])
+  }, [])
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if ((event.target as Element).closest('[data-no-drag]')) return
@@ -174,10 +171,16 @@ export default function SpiralCanvas({
     drag.x = event.clientX
     drag.y = event.clientY
     const v = viewRef.current
-    // 左右拖拽绕竖轴转、上下拖拽绕横轴俯仰，角度都做了收敛限制
-    v.ry = Math.max(-38, Math.min(38, v.ry + dx * 0.16))
-    v.rx = Math.max(-26, Math.min(26, v.rx - dy * 0.14))
-    applyView()
+    // 左右拖拽绕竖轴转、上下拖拽绕横轴俯仰，角度做收敛限制
+    v.yaw = Math.max(-38, Math.min(38, v.yaw + dx * 0.16))
+    v.pitch = Math.max(-14, Math.min(16, v.pitch - dy * 0.12))
+    // 用 rAF 合并同一帧内的多次移动，避免拖拽时过度重算
+    if (!frameRef.current) {
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = 0
+        commitView()
+      })
+    }
   }
 
   const endDrag = () => {
@@ -224,14 +227,14 @@ export default function SpiralCanvas({
   return (
     <div
       ref={containerRef}
-      className="spiral-canvas spiral-stage relative h-full w-full"
+      className="spiral-canvas relative h-full w-full"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
     >
-      {/* 3D 场景层：透视拖拽 / 缩放只改这一层的 transform */}
-      <div ref={sceneRef} className="spiral-scene absolute inset-0">
+      {/* 3D 投影已在几何层完成，这里不做任何 CSS 3D 变换，文字始终保持矢量清晰 */}
+      <div className="absolute inset-0">
         <svg
           viewBox={`0 0 ${layout.width} ${layout.height}`}
           preserveAspectRatio="none"
@@ -371,10 +374,13 @@ export default function SpiralCanvas({
           const accent = override?.accent ?? zone.accent
           const glow = override?.glow ?? zone.glow
           const r = node.nodeRadius
+          // 远景只降低装饰层的不透明度（60%~100%），文字始终保持高对比
+          const bgOpacity = 0.6 + 0.4 * node.depth
+          const textOpacity = 0.92 + 0.08 * node.depth
           const lines = nameLines(node.project.name)
           // 名称字号同时受星球半径与最长一行的字数约束，避免文字顶出球体
           const longest = Math.max(...lines.map((line) => Array.from(line).length))
-          const nameFont = Math.min(27 * u, Math.max(13 * u, Math.min(r * 0.34, (r * 1.6) / longest)))
+          const nameFont = Math.min(27 * u, Math.max(14 * u, Math.min(r * 0.34, (r * 1.6) / longest)))
           const subFont = nameFont * 0.86
           const timeFont = Math.min(14 * u, Math.max(9.5 * u, r * 0.155))
           const tagFont = Math.min(12 * u, Math.max(8 * u, r * 0.135))
@@ -392,8 +398,6 @@ export default function SpiralCanvas({
                 {
                   '--node-accent': accent,
                   '--node-glow': glow,
-                  // 背面的星球轻微淡出，但不影响文字识别
-                  opacity: 0.68 + 0.32 * node.depth,
                 } as CSSProperties
               }
               role="link"
@@ -418,6 +422,8 @@ export default function SpiralCanvas({
               <title>{`${node.project.name} · ${node.project.time}\n${node.project.summary}`}</title>
 
               <g className="planet">
+                {/* 装饰层（光晕 / 球体 / 圆环 / 标签底）：远景仅轻微淡出到 60%，不做任何模糊 */}
+                <g opacity={bgOpacity}>
                 {/* 外圈柔光 */}
                 <circle
                   className="node-halo"
@@ -478,12 +484,14 @@ export default function SpiralCanvas({
                   strokeOpacity={0.3}
                   strokeWidth={0.9 * u}
                 />
+                </g>
                 <text
                   x={node.x}
                   y={node.y - r * 0.6 + tagFont * 0.36}
                   textAnchor="middle"
                   fontSize={tagFont}
                   letterSpacing={0.5 * u}
+                  opacity={textOpacity}
                   fill={accent}
                   fillOpacity={0.95}
                 >
@@ -501,12 +509,13 @@ export default function SpiralCanvas({
                     fontSize={index === 0 ? nameFont : subFont}
                     fontWeight={500}
                     letterSpacing={0.3 * u}
+                    opacity={textOpacity}
                     fill={node.project.nameColor ?? '#F5F1E8'}
                     fillOpacity={0.92}
                     paintOrder="stroke"
                     stroke="#1B2A4A"
-                    strokeOpacity={0.7}
-                    strokeWidth={2 * u}
+                    strokeOpacity={0.78}
+                    strokeWidth={2.2 * u}
                   >
                     {line}
                   </text>
@@ -519,8 +528,13 @@ export default function SpiralCanvas({
                   textAnchor="middle"
                   fontSize={timeFont}
                   letterSpacing={1.2 * u}
+                  opacity={textOpacity}
                   fill="#C9D5EA"
                   fillOpacity={0.85}
+                  paintOrder="stroke"
+                  stroke="#1B2A4A"
+                  strokeOpacity={0.7}
+                  strokeWidth={1.6 * u}
                 >
                   {node.project.time}
                 </text>

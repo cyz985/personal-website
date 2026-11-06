@@ -44,8 +44,12 @@ export interface SpiralOptions {
   safePaddingRatio?: number
   /** 3D 透视：轨道平面向后倾斜的角度（度），0 = 正视无纵深 */
   tiltDeg?: number
+  /** 3D 透视：绕竖轴的偏航角度（度），拖拽旋转视角用 */
+  yawDeg?: number
   /** 透视焦距（逻辑单位）：越大透视越平缓、近大远小越弱 */
   perspective?: number
+  /** 整体缩放（滚轮控制镜头远近），1 = 自适应铺满 */
+  zoom?: number
 }
 
 /** 默认参数：螺旋轨道向外舒展，节点沿螺旋自然铺开，不扎堆一侧 */
@@ -58,8 +62,10 @@ export const defaultSpiralOptions: SpiralOptions = {
   edgePadding: 16, // 最外圈节点几乎贴到画布边缘
   tailDirection: 92, // 螺旋末端（未完待续光点）朝向，基本正下方
   tailOverflow: 24,
-  tiltDeg: 18, // 轨道平面后倾 18°，上半圈变远、下半圈变近
-  perspective: 1400, // 焦距适中：近大远小约 ±10%，克制但能看出纵深
+  tiltDeg: 22, // 轨道平面后倾 22°，上半圈变远、下半圈变近
+  perspective: 1050, // 焦距偏短：近大远小约 ±15%，纵深能看出来但仍克制
+  yawDeg: 0,
+  zoom: 1,
 }
 
 /** 画布逻辑边长（SVG viewBox 固定为 1000×1000，实际显示尺寸由 CSS 控制） */
@@ -285,22 +291,30 @@ export function computeSpiralLayout(
     }
   })
 
-  // ---- 4.2 3D 透视：轨道平面后倾，上半圈远离镜头（收缩变淡）、下半圈靠近镜头（放大更实） ----
+  // ---- 4.2 3D 透视：轨道平面后倾 + 偏航，纯几何投影（不做任何位图缩放，文字始终是矢量渲染） ----
   const tiltRad = Math.min(Math.max(opts.tiltDeg ?? 0, 0), 55) * DEG
+  const yawRad = Math.min(Math.max(opts.yawDeg ?? 0, -70), 70) * DEG
   const tiltCos = Math.cos(tiltRad)
   const tiltSin = Math.sin(tiltRad)
+  const yawCos = Math.cos(yawRad)
+  const yawSin = Math.sin(yawRad)
   const focal = Math.max(opts.perspective ?? 1400, 400)
 
-  /** 某条水平线的透视缩放：> 1 更近、< 1 更远 */
-  const perspAt = (y: number) => focal / (focal - (y - HALF) * tiltSin)
-
+  /**
+   * 平面坐标 → 3D 投影：先绕 X 轴俯仰（上远下近），再绕 Y 轴偏航，
+   * 最后做透视除法得到屏幕位置与缩放。全程只是坐标计算，不产生任何模糊。
+   */
   const projectFlat = (x: number, y: number) => {
-    const persp = perspAt(y)
-    return {
-      x: HALF + (x - HALF) * persp,
-      y: HALF + (y - HALF) * tiltCos * persp,
-      persp,
-    }
+    const dx = x - HALF
+    const dy = y - HALF
+    // 绕 X 轴：上半圈转到远处，下半圈转到近处
+    const ry = dy * tiltCos
+    const rz = -dy * tiltSin
+    // 绕 Y 轴：左右转动观看角度
+    const rx = dx * yawCos + rz * yawSin
+    const rz2 = -dx * yawSin + rz * yawCos
+    const persp = focal / Math.max(focal + rz2, focal * 0.25)
+    return { x: HALF + rx * persp, y: HALF + ry * persp, persp }
   }
 
   // 透视后上下不对称，整体平移回画布中心，保持构图中正
@@ -319,11 +333,11 @@ export function computeSpiralLayout(
     return { x: p.x, y: p.y + shiftY, persp: p.persp }
   }
 
-  // 深度归一化：0 = 最远（上），1 = 最近（下）
+  // 深度归一化：0 = 最远，1 = 最近
   let perspMin = Infinity
   let perspMax = -Infinity
   flat.forEach((item) => {
-    const p = perspAt(item.y)
+    const p = projectFlat(item.x, item.y).persp
     perspMin = Math.min(perspMin, p)
     perspMax = Math.max(perspMax, p)
   })
@@ -369,8 +383,9 @@ export function computeSpiralLayout(
   const targetRatio = canvasRatio >= 2 ? 1.9 : canvasRatio >= 1.55 ? 1.7 : 1.5
   const usableY = canvasRatio >= 1.25 ? Math.min(availY, availX / targetRatio) : availY
   // 主轴铺满可用宽度、副轴铺满按比例计算的高度 → 宽屏横向椭圆，窄屏纵向椭圆
-  const kx = availX / extX
-  const ky = usableY / extY
+  const zoom = Math.min(Math.max(opts.zoom ?? 1, 0.5), 1.6)
+  const kx = (availX / extX) * zoom
+  const ky = (usableY / extY) * zoom
   // 星球尺寸跟随画布短边统一缩放，宽屏横向拉伸时不会因此变小；上限受纵向比例约束避免重叠
   const sizeScale = Math.min(canvasW, canvasH) / CANVAS_SIZE
   const unitScale = Math.min(sizeScale, ky * 1.2)
@@ -579,10 +594,12 @@ export function computeSpiralLayout(
     const t0 = (tailEndTheta * i) / TRACK_SEGMENTS
     const t1 = (tailEndTheta * (i + 1)) / TRACK_SEGMENTS
     const midTheta = (t0 + t1) / 2
-    const midY = HALF + (radius0 + scaledB * midTheta) * Math.sin(startAngleRad + midTheta)
+    const midR = radius0 + scaledB * midTheta
+    const midAngle = startAngleRad + midTheta
+    const midPersp = projectFlat(HALF + midR * Math.cos(midAngle), HALF + midR * Math.sin(midAngle)).persp
     return {
       d: sampleTrack(t0, t1, HALF, radius0, scaledB, startAngleRad, viewMap),
-      depth: depthOf(perspAt(midY)),
+      depth: depthOf(midPersp),
     }
   })
 
