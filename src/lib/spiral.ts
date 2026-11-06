@@ -68,7 +68,9 @@ export const CENTER_LIFT_RATIO = 0.1
 
 /** 默认参数：螺旋轨道向外舒展，节点沿螺旋自然铺开，不扎堆一侧 */
 export const defaultSpiralOptions: SpiralOptions = {
-  startRadius: 200, // 内圈第一颗星球离中心圆的距离（逻辑单位）
+  // 内圈第一颗星球离中心圆的距离。中心圆盘放大后，内圈整体向外退让一档
+  //（外侧星球受"贴合画布边缘"的归一化约束，屏幕位置基本不变，只有内圈外移）
+  startRadius: 224,
   pitchPerTurn: 185, // 每圈外扩的距离，圈与圈之间留白舒服
   minArcGap: 440, // 相邻节点的弧长间距，9 个节点绕约 1.7 圈
   nodeRadiusMin: 60, // 内圈星球基准尺寸
@@ -522,10 +524,10 @@ export function computeSpiralLayout(
             const dy = Math.max(node.y - maxY, minY - node.y, 0)
             clearance = Math.min(clearance, Math.hypot(dx, dy) - node.nodeRadius)
           }
-          // 也不能压住中心图案与提示文字（中心圆已放大为横向椭圆，净空同步加大）
+          // 也不能压住中心图案与提示文字（中心圆盘已再放大一档，净空同步加大）
           const centerDx = Math.max(HALF - maxX, minX - HALF, 0)
-          const centerDy = Math.max(HALF - maxY, minY - (HALF + 118), 0)
-          clearance = Math.min(clearance, Math.hypot(centerDx, centerDy) - 72)
+          const centerDy = Math.max(HALF - maxY, minY - (HALF + 128), 0)
+          clearance = Math.min(clearance, Math.hypot(centerDx, centerDy) - 84)
 
           // 与已放置的里程碑文字不互相压住
           let freeOfLabels = true
