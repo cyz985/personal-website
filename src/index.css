@@ -264,8 +264,9 @@
   }
 }
 
+/* 低频呼吸闪烁：周期由每颗星自己的 --tw-dur 决定（6.5~15s），相位全错开 */
 .star-twinkle {
-  animation: starTwinkle 6s ease-in-out infinite;
+  animation: starTwinkle var(--tw-dur, 6s) ease-in-out infinite;
 }
 
 @keyframes starTwinkle {
@@ -275,6 +276,33 @@
   }
   50% {
     opacity: var(--tw-max, 0.3);
+  }
+}
+
+/* 高频微闪：小星专用，多次起落形成细碎闪烁感（仅透明度变化，不位移不缩放） */
+.star-flicker {
+  animation: starFlicker var(--tw-dur, 2.4s) ease-in-out infinite;
+}
+
+@keyframes starFlicker {
+  0%,
+  100% {
+    opacity: var(--tw-min, 0.1);
+  }
+  14% {
+    opacity: var(--tw-max, 0.4);
+  }
+  30% {
+    opacity: var(--tw-min, 0.1);
+  }
+  52% {
+    opacity: var(--tw-max, 0.4);
+  }
+  68% {
+    opacity: var(--tw-min, 0.1);
+  }
+  84% {
+    opacity: var(--tw-max, 0.4);
   }
 }
 
@@ -291,7 +319,8 @@
   .core-float,
   .star-drift,
   .star-float,
-  .star-twinkle {
+  .star-twinkle,
+  .star-flicker {
     animation: none;
   }
 }

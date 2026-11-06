@@ -26,7 +26,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
   const fontSize = Math.min(available / (name.length * CHAR_WIDTH), available * 0.54)
 
   return (
-    <div className="relative h-[136px] w-[154px]">
+    <div className="relative h-[142px] w-[162px]">
       <a
         href="/#/about"
         target="_blank"
@@ -56,11 +56,11 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
                 <stop offset="45%" stopColor="#F7DCFF" stopOpacity="0.5" />
                 <stop offset="100%" stopColor="#BEEBFF" stopOpacity="0.55" />
               </linearGradient>
-              {/* 盘面底色：极低不透明度的干净蓝紫渐变，透出星空，不发灰不发闷 */}
+              {/* 盘面底色：极低不透明度的干净蓝紫渐变，星空与背景几乎完全透出 */}
               <radialGradient id="core-panel" cx="50%" cy="38%" r="72%">
-                <stop offset="0%" stopColor="#7FA2D8" stopOpacity="0.3" />
-                <stop offset="48%" stopColor="#53719F" stopOpacity="0.19" />
-                <stop offset="100%" stopColor="#3A4E75" stopOpacity="0.09" />
+                <stop offset="0%" stopColor="#8FB2E4" stopOpacity="0.17" />
+                <stop offset="48%" stopColor="#5B79A8" stopOpacity="0.1" />
+                <stop offset="100%" stopColor="#3A4E75" stopOpacity="0.04" />
               </radialGradient>
               {/* 表面轻微色温：左上暖橙、中下淡紫，都极淡 */}
               <radialGradient id="core-tint-warm" cx="32%" cy="26%" r="70%">
@@ -157,7 +157,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
           {/* 文字层：等比正交渲染，不随盘面椭圆拉伸，永远正对镜头、清晰锐利 */}
           <svg
             viewBox="0 0 100 100"
-            className="absolute left-1/2 top-1/2 h-[146px] w-[146px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
+            className="absolute left-1/2 top-1/2 h-[154px] w-[154px] -translate-x-1/2 -translate-y-1/2 overflow-visible"
             aria-hidden="true"
           >
             <text
@@ -171,7 +171,7 @@ export default function CenterCore({ ariaLabel, hint, name }: CenterCoreProps) {
               letterSpacing={fontSize * 0.2}
               fill="#FBF7EE"
               stroke="#0B1428"
-              strokeOpacity="0.5"
+              strokeOpacity="0.6"
               strokeWidth="0.7"
               paintOrder="stroke"
             >

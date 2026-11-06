@@ -295,6 +295,7 @@ export default function SpiralCanvas({
         {layout.trackSegments.map((segment, index) => (
           <path
             key={`track-${index}`}
+            className="spiral-track"
             d={segment.d}
             fill="none"
             stroke="url(#track-gradient)"
@@ -546,7 +547,7 @@ export default function SpiralCanvas({
         })}
 
         {/* 轨道末端：呼吸光点 + 未完待续 */}
-        <g>
+        <g className="spiral-tail">
           <circle cx={layout.tail.x} cy={layout.tail.y} r={16 * u} fill="#FFB370" fillOpacity={0.1} />
           <circle cx={layout.tail.x} cy={layout.tail.y} r={9 * u} fill="#FFB370" fillOpacity={0.18} />
           <circle

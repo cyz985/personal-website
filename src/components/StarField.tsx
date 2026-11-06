@@ -1,35 +1,52 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+
+/** 星星造型：圆点、十字星、四角星芒 */
+type StarKind = 'dot' | 'cross' | 'star'
+/** 闪烁节奏：高频微闪 / 低频呼吸 / 常亮 */
+type Twinkle = 'none' | 'breath' | 'flicker'
+
 interface Star {
   x: number
   y: number
   r: number
   color: string
   opacity: number
-  sparkle: boolean
-  /** 是否参与柔和闪烁 */
-  twinkle: boolean
-  /** 闪烁周期（秒）与相位偏移（秒），错开避免整齐划一 */
-  twinkleDuration: number
-  twinkleDelay: number
+  kind: StarKind
+  twinkle: Twinkle
+  /** 闪烁周期（秒）与相位偏移（秒），逐颗错开，绝不整齐划一 */
+  duration: number
+  delay: number
+  /** 闪烁最低亮度比例（30%~45%），形成明显的明暗层次 */
+  floor: number
   /** 漂移分组：三组方向 / 速度不同，叠加整层漂移形成自然波动感 */
   floatGroup: 0 | 1 | 2
 }
 
-/**
- * 固定种子的伪随机：星尘位置每次刷新都一致，服务端/客户端也不会抖动
- * 位置完全静态；闪烁与漂移均为 CSS 动画（transform/opacity，开销极低）
- */
+/** 遮挡禁区（画布 viewBox 坐标） */
+interface Zone {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
 
-/** 漂移分组数量 */
-const FLOAT_GROUPS = 3
+/** 轨道线上的采样点（星星也要避让轨道线） */
+interface TrackPoint {
+  x: number
+  y: number
+}
+
+interface SafeArea {
+  zones: Zone[]
+  points: TrackPoint[]
+  /** 轨道线避让半径（viewBox 单位） */
+  lineRadius: number
+}
 
 /**
- * 位置分布策略（硬性两区制）：
- * - 【核心主体区】= 以画面中心为圆心、半径 312 的圆（完整覆盖螺旋轨道圈及其外沿缓冲带），
- *   内部大幅清空，仅放 4 颗几乎不可见的极细小点（透明度 0.08~0.15）
- * - 【外围区】= 核心区之外的全部安全带：约 75% 星星优先撒进上下两段横向缓冲区
- *   （y 240~495 与 y 505~760，避开中间核心区的自然挖空），25% 均匀散布画布其余外围空隙
- * - 轨道圈附近一圈（半径 238~312）完全无星，确保不贴轨道、不贴星球与时间文字
- * - 全随机 + 圆形挖空，无直线、无圆环、无贴纸感
+ * 星星生成：固定种子伪随机，位置每次刷新完全一致
+ * 分布策略：60% 落在宽屏必然可见的横向带（y 170~830），40% 均匀铺满整块画布；
+ * 具体的"不压星球 / 不压文字 / 不压轨道线"由运行时测量禁区后过滤，做到精确避让。
  */
 const STARS: Star[] = (() => {
   let seed = 20260101
@@ -38,168 +55,183 @@ const STARS: Star[] = (() => {
     return seed / 2147483647
   }
 
-  /** 核心主体区半径：覆盖螺旋轨道外缘（约 238）+ 74 缓冲，圈内基本无星 */
-  const CORE_R = 312
-  const inCore = (x: number, y: number, extra = 0) => Math.hypot(x - 500, y - 500) < CORE_R + extra
-
-  // 上下两段缓冲区（y 轴避开核心区后，上半截和下半截各占 ~155px 高度）
-  const CORNER_BOXES = [
-    { x0: 0, x1: 1000, y0: 0, y1: 240 },
-    { x0: 0, x1: 1000, y0: 760, y1: 1000 },
-  ]
-
+  const COLORS = ['#F5F1E8', '#F5F1E8', '#F5F1E8', '#C7A6FF', '#CFE4FF', '#FFD98E']
+  const TOTAL = 380
   const list: Star[] = []
-  let floatIndex = 0
-  const nextGroup = () => (floatIndex++ % FLOAT_GROUPS) as 0 | 1 | 2
 
-  type Kind = 'tiny' | 'medium' | 'large' | 'gold' | 'sparkle'
-  const makeStar = (kind: Kind, pos: { x: number; y: number }): Star => {
-    switch (kind) {
-      case 'tiny': {
-        const lilac = rand() < 0.3
-        return {
-          ...pos,
-          r: 0.7 + rand() * 0.4,
-          color: lilac ? '#C7A6FF' : '#F5F1E8',
-          opacity: 0.2 + rand() * 0.14,
-          sparkle: false,
-          twinkle: rand() < 0.5,
-          twinkleDuration: 5 + rand() * 3,
-          twinkleDelay: rand() * 12,
-          floatGroup: nextGroup(),
-        }
-      }
-      case 'medium': {
-        const lilac = rand() < 0.3
-        return {
-          ...pos,
-          r: 1.15 + rand() * 0.65,
-          color: lilac ? '#C7A6FF' : '#F5F1E8',
-          opacity: 0.32 + rand() * 0.2,
-          sparkle: false,
-          twinkle: true,
-          twinkleDuration: 5 + rand() * 4,
-          twinkleDelay: rand() * 12,
-          floatGroup: nextGroup(),
-        }
-      }
-      case 'large': {
-        const blue = rand() < 0.4
-        return {
-          ...pos,
-          r: 2.1 + rand() * 0.8,
-          color: blue ? '#CFE4FF' : '#F5F1E8',
-          opacity: 0.4 + rand() * 0.15,
-          sparkle: false,
-          twinkle: true,
-          twinkleDuration: 6 + rand() * 3.5,
-          twinkleDelay: rand() * 12,
-          floatGroup: nextGroup(),
-        }
-      }
-      case 'gold': {
-        const tone = rand()
-        return {
-          ...pos,
-          r: 1.6 + rand() * 0.8,
-          color: tone < 0.34 ? '#FFD98E' : tone < 0.67 ? '#FFC95C' : '#FFE3A8',
-          opacity: 0.5 + rand() * 0.16,
-          sparkle: false,
-          twinkle: true,
-          twinkleDuration: 6.5 + rand() * 3.5,
-          twinkleDelay: rand() * 12,
-          floatGroup: nextGroup(),
-        }
-      }
-      default:
-        return {
-          ...pos,
-          r: 2 + rand() * 1.3,
-          color: rand() < 0.35 ? '#C7A6FF' : '#F5F1E8',
-          opacity: 0.36 + rand() * 0.22,
-          sparkle: true,
-          twinkle: true,
-          twinkleDuration: 5.5 + rand() * 3.5,
-          twinkleDelay: rand() * 12,
-          floatGroup: nextGroup(),
-        }
-    }
-  }
+  for (let i = 0; i < TOTAL; i++) {
+    const inBand = rand() < 0.62
+    const x = rand() * 1000
+    // 宽屏（slice 裁切）下必然可见的横向带，确保加进来的星星真的能被看到
+    const y = inBand ? 230 + rand() * 540 : rand() * 1000
 
-  // —— 单层分布：约 75% 优先撒进上下两段缓冲区，25% 均匀散布画布其余外围空隙 ——
-  // 总量 110 颗；中星 24 / 微星 30 / 大星 24 / 暖金 16 / 十字星 16
-  const mix: Kind[] = [
-    'medium', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium',
-    'medium', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium',
-    'medium', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium', 'medium',
-    'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny',
-    'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny',
-    'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny',
-    'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny', 'tiny',
-    'tiny', 'tiny', 'tiny', 'tiny',
-    'large', 'large', 'large', 'large', 'large', 'large', 'large', 'large',
-    'large', 'large', 'large', 'large', 'large', 'large', 'large', 'large',
-    'large', 'large', 'large', 'large', 'large', 'large', 'large', 'large',
-    'gold', 'gold', 'gold', 'gold', 'gold', 'gold', 'gold', 'gold',
-    'gold', 'gold', 'gold', 'gold', 'gold', 'gold', 'gold', 'gold',
-    'sparkle', 'sparkle', 'sparkle', 'sparkle', 'sparkle', 'sparkle', 'sparkle', 'sparkle',
-    'sparkle', 'sparkle', 'sparkle', 'sparkle', 'sparkle', 'sparkle', 'sparkle', 'sparkle',
-  ]
+    const roll = rand()
+    let kind: StarKind = 'dot'
+    let r = 0.9 + rand() * 0.7
+    let opacity = 0.28 + rand() * 0.22
+    let color = COLORS[Math.floor(rand() * COLORS.length)]
 
-  let guard = 0
-  let placed = 0
-  while (placed < mix.length && guard++ < 4000) {
-    let x: number
-    let y: number
-    // 75% 概率落进 CORNER_BOXES 区域
-    if (rand() < 0.75) {
-      const box = CORNER_BOXES[Math.floor(rand() * CORNER_BOXES.length)]
-      x = box.x0 + rand() * (box.x1 - box.x0)
-      y = box.y0 + rand() * (box.y1 - box.y0)
+    if (roll < 0.2) {
+      // 十字星
+      kind = 'cross'
+      r = 1.3 + rand() * 0.8
+      opacity = 0.38 + rand() * 0.22
+      color = rand() < 0.4 ? '#C7A6FF' : '#F5F1E8'
+    } else if (roll < 0.35) {
+      // 四角星芒
+      kind = 'star'
+      r = 1.3 + rand() * 0.9
+      opacity = 0.36 + rand() * 0.22
+      color = rand() < 0.45 ? '#CFE4FF' : '#F5F1E8'
+    } else if (roll < 0.78) {
+      // 中等光点：主要密度来源，清晰但不刺眼
+      r = 2 + rand() * 0.8
+      opacity = 0.45 + rand() * 0.22
     } else {
-      x = rand() * 1000
-      y = rand() * 1000
+      // 少量明亮锚点：让星空有轻重层次
+      r = 2.4 + rand() * 0.8
+      opacity = 0.62 + rand() * 0.18
+      color = rand() < 0.5 ? '#FFD98E' : '#F5F1E8'
     }
-    if (inCore(x, y)) continue
-    list.push(makeStar(mix[placed], { x: x / 10, y: y / 10 }))
-    placed += 1
-  }
 
-  // —— 核心主体区：零星 4 颗极细小点，几乎不显眼，且都在轨道外沿之外 ——
-  guard = 0
-  placed = 0
-  while (placed < 4 && guard++ < 400) {
-    const x = 10 + rand() * 980
-    const y = 240 + rand() * 520
-    const d = Math.hypot(x - 500, y - 500)
-    if (d < 300 || d > 345) continue
+    // 闪烁节奏分层：高频微闪 / 低频呼吸 / 常亮
+    const tw = rand()
+    const twinkle: Twinkle = tw < 0.38 ? 'flicker' : tw < 0.84 ? 'breath' : 'none'
+    // 小星闪得更快，大星更慢，视觉层次更自然
+    const duration =
+      twinkle === 'flicker'
+        ? 1.7 + rand() * 2.1
+        : 6.5 + rand() * 8.5 + (1 - r / 2.2) * 0
+
     list.push({
-      x: x / 10,
-      y: y / 10,
-      r: 0.5 + rand() * 0.3,
-      color: rand() < 0.5 ? '#C7A6FF' : '#F5F1E8',
-      opacity: 0.08 + rand() * 0.07,
-      sparkle: false,
-      twinkle: false,
-      twinkleDuration: 6,
-      twinkleDelay: 0,
-      floatGroup: nextGroup(),
+      x,
+      y,
+      r,
+      color,
+      opacity,
+      kind,
+      twinkle,
+      duration,
+      delay: rand() * 14,
+      floor: 0.3 + rand() * 0.15,
+      floatGroup: (i % 3) as 0 | 1 | 2,
     })
-    placed += 1
   }
 
   return list
 })()
 
 /**
- * 背景星尘层：四角加权分布的淡白 / 浅紫 / 暖黄光点 + 四角星，始终处于最底层
- * - 整层缓慢漂移 + 三组子层各以不同方向 / 速度微漂（差异速度形成自然波动感）
- * - 大量星星以柔和幅度呼吸闪烁（相位 0~12s 全错开）
+ * 背景星尘层：圆点 / 十字星 / 四角星芒，始终处于最底层
+ * - 运行时测量星球节点、轨道时间标签、中心圆盘、轨道末端文字的实际位置，
+ *   以及轨道主线的采样点，生成遮挡禁区，星星自动避开（文字四周留 20 单位安全区，
+ *   大于约 20px 的屏幕距离，同时覆盖 ±12px 的缓慢漂移幅度）
+ * - 大量星星以 30%~100% 亮度变化闪烁：一部分高频微闪、一部分低频呼吸，相位全错开
+ * - 只有透明度变化，不做位移 / 缩放跳动
  * pointer-events-none，完全不影响点击与阅读
  */
 export default function StarField() {
+  const svgRef = useRef<SVGSVGElement>(null)
+  const [safe, setSafe] = useState<SafeArea>({ zones: [], points: [], lineRadius: 7 })
+
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+
+    let raf = 0
+    const measure = () => {
+      const ctm = svg.getScreenCTM()
+      if (!ctm) return
+      const inv = ctm.inverse()
+      const scale = Math.hypot(ctm.a, ctm.b) || 1
+      // 文字 / 星球四周的安全区：20 个 viewBox 单位（≥20px 屏幕距离，且覆盖漂移幅度）
+      const margin = 20
+
+      const zones: Zone[] = []
+      document
+        .querySelectorAll('.spiral-node, .milestone, .core-link, .spiral-tail')
+        .forEach((el) => {
+          const rect = el.getBoundingClientRect()
+          if (rect.width === 0 && rect.height === 0) return
+          const pts = [
+            new DOMPoint(rect.left, rect.top),
+            new DOMPoint(rect.right, rect.top),
+            new DOMPoint(rect.left, rect.bottom),
+            new DOMPoint(rect.right, rect.bottom),
+          ].map((p) => p.matrixTransform(inv))
+          const xs = pts.map((p) => p.x)
+          const ys = pts.map((p) => p.y)
+          zones.push({
+            x0: Math.min(...xs) - margin,
+            x1: Math.max(...xs) + margin,
+            y0: Math.min(...ys) - margin,
+            y1: Math.max(...ys) + margin,
+          })
+        })
+
+      // 轨道主线：逐段采样，星星不压线
+      const points: TrackPoint[] = []
+      document.querySelectorAll<SVGPathElement>('.spiral-track').forEach((path) => {
+        const ownerMatrix = path.ownerSVGElement?.getScreenCTM()
+        if (!ownerMatrix) return
+        let len = 0
+        try {
+          len = path.getTotalLength()
+        } catch {
+          return
+        }
+        if (!len) return
+        const step = Math.max(14, len / 26)
+        for (let d = 0; d <= len; d += step) {
+          const pt = path.getPointAtLength(d)
+          const v = new DOMPoint(pt.x, pt.y).matrixTransform(ownerMatrix).matrixTransform(inv)
+          points.push({ x: v.x, y: v.y })
+        }
+      })
+
+      setSafe({ zones, points, lineRadius: 7 / scale })
+    }
+
+    const schedule = () => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(measure)
+    }
+
+    // 首次渲染、布局稳定后各测一次，之后随窗口尺寸变化重测
+    schedule()
+    const t1 = window.setTimeout(measure, 300)
+    const t2 = window.setTimeout(measure, 1200)
+    window.addEventListener('resize', schedule)
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+      window.removeEventListener('resize', schedule)
+    }
+  }, [])
+
+  /** 过滤掉落在禁区内的星星 */
+  const visible = useMemo(() => {
+    const { zones, points, lineRadius } = safe
+    if (!zones.length && !points.length) return STARS
+    const r2 = lineRadius * lineRadius
+    return STARS.filter((star) => {
+      for (const z of zones) {
+        if (star.x > z.x0 && star.x < z.x1 && star.y > z.y0 && star.y < z.y1) return false
+      }
+      for (const p of points) {
+        const dx = star.x - p.x
+        const dy = star.y - p.y
+        if (dx * dx + dy * dy < r2) return false
+      }
+      return true
+    })
+  }, [safe])
+
   return (
     <svg
+      ref={svgRef}
       viewBox="0 0 1000 1000"
       preserveAspectRatio="xMidYMid slice"
       className="pointer-events-none absolute inset-0 h-full w-full"
@@ -209,55 +241,74 @@ export default function StarField() {
       <g className="star-drift">
         {[0, 1, 2].map((group) => (
           <g key={group} className={`star-float star-float-${'abc'[group]}`}>
-            {STARS.filter((star) => star.floatGroup === group).map((star, index) => {
-              const cx = star.x * 10
-              const cy = star.y * 10
-              return (
-                <g
-                  key={index}
-                  opacity={star.opacity}
-                  className={star.twinkle ? 'star-twinkle' : undefined}
-                  style={
-                    star.twinkle
-                      ? {
-                          // 黄色亮星闪烁幅度稍大（45%↔105%），普通星更轻（62%↔100%）
-                          ['--tw-min' as string]:
-                            star.color.startsWith('#FF') ? star.opacity * 0.45 : star.opacity * 0.62,
-                          ['--tw-max' as string]: star.opacity,
-                          animationDuration: `${star.twinkleDuration}s`,
-                          animationDelay: `${star.twinkleDelay.toFixed(2)}s`,
-                        }
+            {visible
+              .filter((star) => star.floatGroup === group)
+              .map((star, index) => {
+                const cx = star.x
+                const cy = star.y
+                const twinkleClass =
+                  star.twinkle === 'flicker'
+                    ? 'star-flicker'
+                    : star.twinkle === 'breath'
+                      ? 'star-twinkle'
                       : undefined
-                  }
-                >
-                  {star.sparkle ? (
-                    <>
-                      <circle cx={cx} cy={cy} r={star.r * 0.6} fill={star.color} />
-                      <line
-                        x1={cx - star.r * 3}
-                        y1={cy}
-                        x2={cx + star.r * 3}
-                        y2={cy}
-                        stroke={star.color}
-                        strokeWidth={0.8}
-                        strokeOpacity={0.5}
+                return (
+                  <g
+                    key={index}
+                    opacity={star.opacity}
+                    className={twinkleClass}
+                    style={
+                      star.twinkle !== 'none'
+                        ? {
+                            ['--tw-min' as string]: star.opacity * star.floor,
+                            ['--tw-max' as string]: star.opacity,
+                            ['--tw-dur' as string]: `${star.duration.toFixed(2)}s`,
+                            animationDelay: `${star.delay.toFixed(2)}s`,
+                          }
+                        : undefined
+                    }
+                  >
+                    {star.kind === 'cross' ? (
+                      <>
+                        <circle cx={cx} cy={cy} r={star.r * 0.55} fill={star.color} />
+                        <line
+                          x1={cx - star.r * 3}
+                          y1={cy}
+                          x2={cx + star.r * 3}
+                          y2={cy}
+                          stroke={star.color}
+                          strokeWidth={0.7}
+                          strokeOpacity={0.5}
+                        />
+                        <line
+                          x1={cx}
+                          y1={cy - star.r * 3}
+                          x2={cx}
+                          y2={cy + star.r * 3}
+                          stroke={star.color}
+                          strokeWidth={0.7}
+                          strokeOpacity={0.5}
+                        />
+                      </>
+                    ) : star.kind === 'star' ? (
+                      <path
+                        d={`M ${cx} ${cy - star.r * 2.2} Q ${cx + star.r * 0.32} ${
+                          cy - star.r * 0.32
+                        } ${cx + star.r * 2.2} ${cy} Q ${cx + star.r * 0.32} ${
+                          cy + star.r * 0.32
+                        } ${cx} ${cy + star.r * 2.2} Q ${cx - star.r * 0.32} ${
+                          cy + star.r * 0.32
+                        } ${cx - star.r * 2.2} ${cy} Q ${cx - star.r * 0.32} ${
+                          cy - star.r * 0.32
+                        } ${cx} ${cy - star.r * 2.2} Z`}
+                        fill={star.color}
                       />
-                      <line
-                        x1={cx}
-                        y1={cy - star.r * 3}
-                        x2={cx}
-                        y2={cy + star.r * 3}
-                        stroke={star.color}
-                        strokeWidth={0.8}
-                        strokeOpacity={0.5}
-                      />
-                    </>
-                  ) : (
-                    <circle cx={cx} cy={cy} r={star.r} fill={star.color} />
-                  )}
-                </g>
-              )
-            })}
+                    ) : (
+                      <circle cx={cx} cy={cy} r={star.r} fill={star.color} />
+                    )}
+                  </g>
+                )
+              })}
           </g>
         ))}
       </g>
