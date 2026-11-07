@@ -5,12 +5,13 @@
  *         外层柔光 + 内层细流光 + 白色折射芯线，连续不断，没有分段霓虹感
  * - 立体：顶部折射高光、内侧回光、底部柔和投影，悬浮的厚玻璃质感
  * - 环内：半透深色底 + 细碎微弱星点
- * - 文字：飘逸的行书（Ma Shan Zheng），暖白带细金光泽，居中
+ * - 文字：毛笔行书（Ma Shan Zheng），纯白、水平端正，居中
  * - 点击跳转到个人介绍页面；hover 保留柔和高亮
- * 全部由 SVG 几何绘制，不使用 CSS 3D 变换，文字始终矢量清晰
+ * - 响应式：整体以视口为基准等比缩放，椭圆/装饰/文字/小字统一同一系数
+ * 光环与文字均为矢量绘制，缩放后依旧清晰
  */
 
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface CenterCoreProps {
   /** 无障碍标签 */
@@ -26,6 +27,11 @@ interface CenterCoreProps {
 /** 载体尺寸（像素）：横向椭圆，宽高比约 2:1 */
 const W = 252
 const H = 126
+/** 等比缩放的基准视口与上下限：保证文字贴边/椭圆压轨道都不会发生 */
+const BASE_W = 1440
+const BASE_H = 900
+const MIN_SCALE = 0.62
+const MAX_SCALE = 1.18
 const CX = W / 2
 const CY = H / 2
 /** 主描边半径（留出外发光溢出的余量） */
@@ -62,9 +68,29 @@ const INNER_STARS: [number, number, number, number][] = [
 export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCoreProps) {
   /** 按下位置：拖拽超过阈值时不视为点击 */
   const pressRef = useRef<{ x: number; y: number } | null>(null)
+  /** 整体等比缩放系数：随视口大小同步变化，椭圆/文字/小字一起缩放 */
+  const [scale, setScale] = useState(1)
+
+  useEffect(() => {
+    const updateScale = () => {
+      const s = Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H)
+      setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, s)))
+    }
+    updateScale()
+    window.addEventListener('resize', updateScale)
+    return () => window.removeEventListener('resize', updateScale)
+  }, [])
 
   return (
-    <div className="relative" style={{ width: W, height: H }}>
+    <div
+      className="relative"
+      style={{
+        width: W,
+        height: H,
+        transform: `scale(${scale.toFixed(3)})`,
+        transformOrigin: 'center center',
+      }}
+    >
       {/* 只有椭圆范围内可点击，椭圆外不响应 */}
       <button
         type="button"
