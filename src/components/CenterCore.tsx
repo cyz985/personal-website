@@ -422,7 +422,7 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
             </g>
           </svg>
 
-          {/* 名字：端正舒展的行草，米白暖调 + 细金光泽，大气洒脱 */}
+          {/* 名字：端正水平摆放的毛笔行草，纯白 + 克制的柔白微光 */}
           <span
             className="core-name pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap"
             style={{
@@ -432,14 +432,10 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               letterSpacing: 3,
               transform: 'scaleX(0.96)',
               transformOrigin: 'center',
-              backgroundImage:
-                'linear-gradient(172deg, #FFFCF4 0%, #FBEFD8 40%, #F2D9AC 74%, #FFB27D 100%)',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              color: 'transparent',
-              WebkitTextStroke: '0.55px rgba(255, 236, 202, 0.55)',
+              color: '#FFFFFF',
+              WebkitTextStroke: '0.4px rgba(255, 255, 255, 0.45)',
               textShadow:
-                '0 0 16px rgba(255, 176, 116, 0.3), 0 0 4px rgba(255, 224, 186, 0.35)',
+                '0 0 10px rgba(255, 255, 255, 0.26), 0 0 2px rgba(255, 255, 255, 0.3)',
               filter: 'url(#core-ink)',
               paddingBottom: 2,
             }}
