@@ -369,17 +369,18 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
           <span
             className="core-name pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap"
             style={{
-              fontFamily: "'Ma Shan Zheng', 'Noto Serif SC', 'STKaiti', serif",
-              fontSize: Math.min(56, Math.round(168 / name.length)),
+              fontFamily: "'Ma Shan Zheng', 'STKaiti', serif",
+              fontSize: Math.min(58, Math.round(172 / name.length)),
               lineHeight: 1,
-              letterSpacing: 2,
-              transform: 'scaleX(0.86)',
+              letterSpacing: 1,
+              transform: 'rotate(-3deg) scaleX(0.9)',
+              transformOrigin: 'center',
               backgroundImage:
                 'linear-gradient(176deg, #FFFBF2 0%, #F9EDD6 34%, #EAD2A6 64%, #FFF6E4 100%)',
               WebkitBackgroundClip: 'text',
               backgroundClip: 'text',
               color: 'transparent',
-              WebkitTextStroke: '0.4px rgba(255, 243, 220, 0.75)',
+              WebkitTextStroke: '0.55px rgba(255, 243, 220, 0.8)',
               textShadow: '0 0 18px rgba(255, 231, 196, 0.35), 0 0 4px rgba(255, 240, 218, 0.4)',
               paddingBottom: 2,
             }}
