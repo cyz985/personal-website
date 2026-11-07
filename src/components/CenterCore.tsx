@@ -158,6 +158,23 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               <filter id="core-blur-shadow" x="-40%" y="-60%" width="180%" height="220%">
                 <feGaussianBlur stdDeviation="4.5" />
               </filter>
+              {/* 干笔擦痕：给文字边缘加一点毛糙的飞白断续感 */}
+              <filter id="core-ink" x="-12%" y="-12%" width="124%" height="124%">
+                <feTurbulence
+                  type="fractalNoise"
+                  baseFrequency="0.85"
+                  numOctaves="3"
+                  seed="17"
+                  result="noise"
+                />
+                <feDisplacementMap
+                  in="SourceGraphic"
+                  in2="noise"
+                  scale="1.4"
+                  xChannelSelector="R"
+                  yChannelSelector="G"
+                />
+              </filter>
 
               {/* 内容裁剪：所有内层光影都限制在椭圆内 */}
               <clipPath id="core-clip">
@@ -185,7 +202,7 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
                 fill="none"
                 stroke="url(#core-rim)"
                 strokeWidth={14}
-                strokeOpacity={0.1}
+                strokeOpacity={0.05}
               />
             </g>
 
@@ -261,8 +278,8 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               ry={RY}
               fill="none"
               stroke="url(#core-rim)"
-              strokeWidth={8}
-              strokeOpacity={0.4}
+              strokeWidth={7}
+              strokeOpacity={0.3}
               filter="url(#core-blur-soft)"
             />
 
@@ -288,7 +305,7 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               ry={RY}
               fill="none"
               stroke="url(#core-rim)"
-              strokeWidth={2.6}
+              strokeWidth={2.2}
             />
 
             {/* 外层细高光：玻璃管外壁的反光 */}
@@ -300,7 +317,7 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               fill="none"
               stroke="url(#core-core-line)"
               strokeWidth={0.9}
-              strokeOpacity={0.5}
+              strokeOpacity={0.35}
             />
 
             {/* 内层细流光：第二道环线，形成双层玻璃 */}
@@ -324,7 +341,7 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               fill="none"
               stroke="url(#core-core-line)"
               strokeWidth={1.2}
-              strokeOpacity={0.85}
+              strokeOpacity={0.65}
             />
 
             {/* 顶部镜面高光：只在环线上提亮，不额外加外晕 */}
@@ -333,7 +350,7 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               fill="none"
               stroke="#FFF8FB"
               strokeWidth={2}
-              strokeOpacity={0.7}
+              strokeOpacity={0.45}
               strokeLinecap="round"
               filter="url(#core-blur-soft)"
             />
@@ -343,7 +360,7 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               fill="none"
               stroke="#DFFBFF"
               strokeWidth={1.6}
-              strokeOpacity={0.55}
+              strokeOpacity={0.35}
               strokeLinecap="round"
               filter="url(#core-blur-soft)"
             />
@@ -363,25 +380,67 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
                 </g>
               )
             })}
+
+            {/* 金粉飞溅：文字周围零星的细金屑，增强笔势的冲击力 */}
+            <g aria-hidden="true">
+              {[
+                [0.24, 0.2, 1.1, 0.75, '#FFD9A0'],
+                [0.33, 0.14, 0.7, 0.5, '#FFC98A'],
+                [0.72, 0.16, 1, 0.6, '#FFE2B4'],
+                [0.86, 0.4, 0.8, 0.45, '#FFB877'],
+                [0.16, 0.46, 0.9, 0.5, '#FFD9A0'],
+                [0.2, 0.68, 0.7, 0.4, '#FF9C6B'],
+                [0.66, 0.84, 1.1, 0.55, '#FFD9A0'],
+                [0.4, 0.86, 0.65, 0.4, '#FFC98A'],
+                [0.82, 0.7, 0.75, 0.45, '#FFE2B4'],
+                [0.55, 0.13, 0.55, 0.35, '#FF9C6B'],
+              ].map(([px, py, r, o, c], i) => (
+                <circle
+                  key={i}
+                  cx={(Number(px) * W).toFixed(1)}
+                  cy={(Number(py) * H).toFixed(1)}
+                  r={Number(r)}
+                  fill={String(c)}
+                  opacity={Number(o)}
+                />
+              ))}
+              {/* 两缕极细的飞白擦痕，顺着字势向右上甩出 */}
+              <path
+                d="M 34 78 L 44 70"
+                stroke="#FFD9A0"
+                strokeWidth={0.7}
+                strokeOpacity={0.35}
+                strokeLinecap="round"
+              />
+              <path
+                d="M 182 32 L 191 25"
+                stroke="#FFE2B4"
+                strokeWidth={0.6}
+                strokeOpacity={0.3}
+                strokeLinecap="round"
+              />
+            </g>
           </svg>
 
-          {/* 名字：飘逸行书，暖白带细金光泽，始终正对镜头、清晰锐利 */}
+          {/* 名字：狂野飞白草书，向右上倾斜，米白暖调 + 细金锋芒 */}
           <span
             className="core-name pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap"
             style={{
-              fontFamily: "'Ma Shan Zheng', 'STKaiti', serif",
-              fontSize: Math.min(58, Math.round(172 / name.length)),
+              fontFamily: "'Zhi Mang Xing', 'Ma Shan Zheng', 'STKaiti', serif",
+              fontSize: Math.min(62, Math.round(188 / name.length)),
               lineHeight: 1,
-              letterSpacing: 1,
-              transform: 'rotate(-3deg) scaleX(0.9)',
+              letterSpacing: 0,
+              transform: 'rotate(-5deg) scaleX(0.9)',
               transformOrigin: 'center',
               backgroundImage:
-                'linear-gradient(176deg, #FFFBF2 0%, #F9EDD6 34%, #EAD2A6 64%, #FFF6E4 100%)',
+                'linear-gradient(170deg, #FFFAF0 0%, #FAEDD2 38%, #F0D4A4 72%, #FFA971 100%)',
               WebkitBackgroundClip: 'text',
               backgroundClip: 'text',
               color: 'transparent',
-              WebkitTextStroke: '0.55px rgba(255, 243, 220, 0.8)',
-              textShadow: '0 0 18px rgba(255, 231, 196, 0.35), 0 0 4px rgba(255, 240, 218, 0.4)',
+              WebkitTextStroke: '0.5px rgba(255, 230, 190, 0.5)',
+              textShadow:
+                '0 0 12px rgba(255, 150, 84, 0.26), 0 0 3px rgba(255, 214, 160, 0.3)',
+              filter: 'url(#core-ink)',
               paddingBottom: 2,
             }}
           >
