@@ -422,20 +422,16 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
             </g>
           </svg>
 
-          {/* 名字：端正水平摆放的毛笔行草，纯白 + 克制的柔白微光 */}
+          {/* 名字：纯白毛笔字，水平端正、基线一致 */}
           <span
             className="core-name pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap"
             style={{
-              fontFamily: "'Zhi Mang Xing', 'Ma Shan Zheng', 'STKaiti', serif",
-              fontSize: Math.min(64, Math.round(190 / name.length)),
+              fontFamily: "'Ma Shan Zheng', 'STKaiti', serif",
+              fontSize: Math.min(56, Math.round(166 / name.length)),
               lineHeight: 1,
-              letterSpacing: 3,
-              transform: 'scaleX(0.96)',
-              transformOrigin: 'center',
+              letterSpacing: 2,
               color: '#FFFFFF',
-              WebkitTextStroke: '0.4px rgba(255, 255, 255, 0.45)',
-              textShadow:
-                '0 0 10px rgba(255, 255, 255, 0.26), 0 0 2px rgba(255, 255, 255, 0.3)',
+              textShadow: '0 0 8px rgba(255, 255, 255, 0.16)',
               filter: 'url(#core-ink)',
               paddingBottom: 2,
             }}
