@@ -162,15 +162,15 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
               <filter id="core-ink" x="-12%" y="-12%" width="124%" height="124%">
                 <feTurbulence
                   type="fractalNoise"
-                  baseFrequency="0.85"
-                  numOctaves="3"
+                  baseFrequency="0.9"
+                  numOctaves="2"
                   seed="17"
                   result="noise"
                 />
                 <feDisplacementMap
                   in="SourceGraphic"
                   in2="noise"
-                  scale="1.4"
+                  scale="1"
                   xChannelSelector="R"
                   yChannelSelector="G"
                 />
@@ -422,24 +422,24 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
             </g>
           </svg>
 
-          {/* 名字：狂野飞白草书，向右上倾斜，米白暖调 + 细金锋芒 */}
+          {/* 名字：端正舒展的行草，米白暖调 + 细金光泽，大气洒脱 */}
           <span
             className="core-name pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap"
             style={{
               fontFamily: "'Zhi Mang Xing', 'Ma Shan Zheng', 'STKaiti', serif",
-              fontSize: Math.min(62, Math.round(188 / name.length)),
+              fontSize: Math.min(64, Math.round(190 / name.length)),
               lineHeight: 1,
-              letterSpacing: 0,
-              transform: 'rotate(-5deg) scaleX(0.9)',
+              letterSpacing: 3,
+              transform: 'scaleX(0.96)',
               transformOrigin: 'center',
               backgroundImage:
-                'linear-gradient(170deg, #FFFAF0 0%, #FAEDD2 38%, #F0D4A4 72%, #FFA971 100%)',
+                'linear-gradient(172deg, #FFFCF4 0%, #FBEFD8 40%, #F2D9AC 74%, #FFB27D 100%)',
               WebkitBackgroundClip: 'text',
               backgroundClip: 'text',
               color: 'transparent',
-              WebkitTextStroke: '0.5px rgba(255, 230, 190, 0.5)',
+              WebkitTextStroke: '0.55px rgba(255, 236, 202, 0.55)',
               textShadow:
-                '0 0 12px rgba(255, 150, 84, 0.26), 0 0 3px rgba(255, 214, 160, 0.3)',
+                '0 0 16px rgba(255, 176, 116, 0.3), 0 0 4px rgba(255, 224, 186, 0.35)',
               filter: 'url(#core-ink)',
               paddingBottom: 2,
             }}
