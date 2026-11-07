@@ -24,8 +24,8 @@ interface CenterCoreProps {
 }
 
 /** 载体尺寸（像素）：横向椭圆，宽高比约 2:1 */
-const W = 236
-const H = 118
+const W = 252
+const H = 126
 const CX = W / 2
 const CY = H / 2
 /** 主描边半径（留出外发光溢出的余量） */
