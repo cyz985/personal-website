@@ -253,8 +253,8 @@ export interface SiteConfig {
  * 1. 个人信息（把下面的示例内容替换成你自己的）
  * ============================================================================= */
 const personal: PersonalInfo = {
-  name: '林知远',
-  nameEn: 'Lin Zhiyuan',
+  name: '陈滢竹',
+  nameEn: 'Chen Yingzhu',
   school: '示例大学 · 计算机学院',
   className: '软件工程 2401 班',
   studentId: '2024010101',
