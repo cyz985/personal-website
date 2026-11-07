@@ -11,7 +11,8 @@
  * 光环与文字均为矢量绘制，缩放后依旧清晰
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
+import type { CSSProperties } from 'react'
 
 interface CenterCoreProps {
   /** 无障碍标签 */
@@ -27,11 +28,9 @@ interface CenterCoreProps {
 /** 载体尺寸（像素）：横向椭圆，宽高比约 2:1 */
 const W = 252
 const H = 126
-/** 等比缩放的基准视口与上下限：保证文字贴边/椭圆压轨道都不会发生 */
+/** 等比缩放的基准视口：组件整体尺寸随视口按这一基准换算成 vw / vh */
 const BASE_W = 1440
 const BASE_H = 900
-const MIN_SCALE = 0.62
-const MAX_SCALE = 1.18
 const CX = W / 2
 const CY = H / 2
 /** 主描边半径（留出外发光溢出的余量） */
@@ -68,28 +67,23 @@ const INNER_STARS: [number, number, number, number][] = [
 export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCoreProps) {
   /** 按下位置：拖拽超过阈值时不视为点击 */
   const pressRef = useRef<{ x: number; y: number } | null>(null)
-  /** 整体等比缩放系数：随视口大小同步变化，椭圆/文字/小字一起缩放 */
-  const [scale, setScale] = useState(1)
 
-  useEffect(() => {
-    const updateScale = () => {
-      const s = Math.min(window.innerWidth / BASE_W, window.innerHeight / BASE_H)
-      setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, s)))
-    }
-    updateScale()
-    window.addEventListener('resize', updateScale)
-    return () => window.removeEventListener('resize', updateScale)
-  }, [])
+  /** 名字字号与字距：都以组件宽度为基准换算成相对单位，随整体一起缩放 */
+  const nameSize = Math.min(56, Math.round(166 / name.length))
+  const ratio = (px: number) => `${(px / W).toFixed(5)}`
 
   return (
     <div
       className="relative"
-      style={{
-        width: W,
-        height: H,
-        transform: `scale(${scale.toFixed(3)})`,
-        transformOrigin: 'center center',
-      }}
+      style={
+        {
+          // 组件宽度随视口等比变化，高度严格保持 2:1
+          '--core-w': `min(${((W / BASE_W) * 100).toFixed(2)}vw, ${((W / BASE_H) * 100).toFixed(2)}vh)`,
+          '--core-h': 'calc(var(--core-w) * 0.5)',
+          width: 'var(--core-w)',
+          height: 'var(--core-h)',
+        } as CSSProperties
+      }
     >
       {/* 只有椭圆范围内可点击，椭圆外不响应 */}
       <button
@@ -448,18 +442,18 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
             </g>
           </svg>
 
-          {/* 名字：纯白毛笔字，水平端正、基线一致 */}
+          {/* 名字：纯白毛笔字，水平端正、基线一致；字号随组件宽度等比缩放 */}
           <span
             className="core-name pointer-events-none absolute inset-0 flex items-center justify-center whitespace-nowrap"
             style={{
               fontFamily: "'Ma Shan Zheng', 'STKaiti', serif",
-              fontSize: Math.min(56, Math.round(166 / name.length)),
+              fontSize: `calc(var(--core-w) * ${ratio(nameSize)})`,
               lineHeight: 1,
-              letterSpacing: 2,
+              letterSpacing: `calc(var(--core-w) * ${ratio(2)})`,
               color: '#FFFFFF',
               textShadow: '0 0 8px rgba(255, 255, 255, 0.16)',
               filter: 'url(#core-ink)',
-              paddingBottom: 2,
+              paddingBottom: `calc(var(--core-w) * ${ratio(2)})`,
             }}
           >
             {name}
@@ -467,8 +461,14 @@ export default function CenterCore({ ariaLabel, hint, name, onOpen }: CenterCore
         </span>
       </button>
 
-      {/* 椭圆下方小字提示：位置、字号保持不变 */}
-      <span className="core-hint hint-breathe pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap text-[11px] tracking-[0.16em] text-muted/75">
+      {/* 椭圆下方小字提示：字号与间距同样跟随组件宽度等比缩放 */}
+      <span
+        className="core-hint hint-breathe pointer-events-none absolute left-1/2 top-full -translate-x-1/2 whitespace-nowrap tracking-[0.16em] text-muted/75"
+        style={{
+          fontSize: `calc(var(--core-w) * ${ratio(11)})`,
+          marginTop: `calc(var(--core-w) * ${ratio(8)})`,
+        }}
+      >
         {hint}
       </span>
     </div>
